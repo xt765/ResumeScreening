@@ -246,9 +246,12 @@ const DashboardPage = {
                     .join('');
 
                 const systemInfo = document.getElementById('systemInfo');
-                if (systemInfo) {
+                const existingServices = document.getElementById('servicesStatus');
+                if (existingServices) {
+                    existingServices.innerHTML = servicesHtml;
+                } else if (systemInfo) {
                     systemInfo.innerHTML += `
-                        <div class="info-item">
+                        <div class="info-item" id="servicesStatus">
                             <span class="info-label">服务状态</span>
                             <div class="services-list">${servicesHtml}</div>
                         </div>
