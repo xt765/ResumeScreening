@@ -126,7 +126,7 @@ const PageConfig = {
         icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>',
         render: () => MonitorPage.render(),
         requireAuth: true,
-        scripts: ['js/pages/monitor.js'],
+        scripts: ['js/echarts.min.js', 'js/pages/monitor.js'],
     },
     users: {
         title: '用户管理',
