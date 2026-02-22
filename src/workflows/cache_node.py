@@ -215,6 +215,7 @@ async def cache_node(state: ResumeState) -> dict[str, Any]:
     2. 缓存候选人信息（按 talent_id）
     3. 缓存筛选结果（按 condition_id）
     4. 更新筛选统计
+    5. 更新数据库中的工作流状态
 
     Args:
         state: 当前工作流状态
@@ -253,6 +254,21 @@ async def cache_node(state: ResumeState) -> dict[str, Any]:
                 state.is_qualified or False,
                 state.qualification_reason or "",
             )
+
+        # 4. 更新数据库中的工作流状态
+        from src.models import TalentInfo, WorkflowStatusEnum, async_session_factory
+        from sqlalchemy import update
+
+        if async_session_factory is not None:
+            async with async_session_factory() as session:
+                stmt = (
+                    update(TalentInfo)
+                    .where(TalentInfo.id == state.talent_id)
+                    .values(workflow_status=WorkflowStatusEnum.COMPLETED)
+                )
+                await session.execute(stmt)
+                await session.commit()
+                logger.info(f"更新工作流状态为 completed: talent_id={state.talent_id}")
 
         elapsed_time = int((time.time() - start_time) * 1000)
         logger.info(f"缓存节点完成: talent_id={state.talent_id}, elapsed_time={elapsed_time}ms")

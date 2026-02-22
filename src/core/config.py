@@ -9,11 +9,13 @@
 """
 
 from functools import lru_cache
-
 from pathlib import Path
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+ENV_FILE = PROJECT_ROOT / ".env"
 
 
 class MySQLSettings(BaseSettings):
@@ -29,7 +31,7 @@ class MySQLSettings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_prefix="MYSQL_",
-        env_file=str(Path(__file__).parent.parent.parent / ".env"),
+        env_file=str(ENV_FILE),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -66,7 +68,7 @@ class MinIOSettings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_prefix="MINIO_",
-        env_file=str(Path(__file__).parent.parent.parent / ".env"),
+        env_file=str(ENV_FILE),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -91,7 +93,7 @@ class RedisSettings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_prefix="REDIS_",
-        env_file=str(Path(__file__).parent.parent.parent / ".env"),
+        env_file=str(ENV_FILE),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -123,7 +125,7 @@ class ChromaSettings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_prefix="CHROMA_",
-        env_file=str(Path(__file__).parent.parent.parent / ".env"),
+        env_file=str(ENV_FILE),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -143,7 +145,7 @@ class DeepSeekSettings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_prefix="DS_",
-        env_file=str(Path(__file__).parent.parent.parent.parent / ".env"),
+        env_file=str(ENV_FILE),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -164,7 +166,7 @@ class DashScopeSettings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_prefix="DASHSCOPE_",
-        env_file=str(Path(__file__).parent.parent.parent / ".env"),
+        env_file=str(ENV_FILE),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -192,7 +194,7 @@ class AppSettings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_prefix="APP_",
-        env_file=str(Path(__file__).parent.parent.parent / ".env"),
+        env_file=str(ENV_FILE),
         env_file_encoding="utf-8",
         extra="ignore",
     )
