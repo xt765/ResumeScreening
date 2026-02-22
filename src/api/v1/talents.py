@@ -655,7 +655,9 @@ async def list_talents(
     screening_date_end: Annotated[
         str | None, Query(description="选拔日期截止（YYYY-MM-DD）")
     ] = None,
-    screening_status: Annotated[ScreeningStatusEnum | None, Query(description="筛选状态")] = None,
+    screening_status: Annotated[
+        str | None, Query(description="筛选状态（qualified/unqualified）")
+    ] = None,
     condition_id: Annotated[str | None, Query(description="筛选条件ID")] = None,
     logic: Annotated[str | None, Query(description="条件逻辑（and/or）")] = None,
     page: Annotated[int, Query(ge=1, description="页码")] = 1,
@@ -670,7 +672,7 @@ async def list_talents(
         school: 院校（模糊匹配）
         screening_date_start: 选拔日期起始
         screening_date_end: 选拔日期截止
-        screening_status: 筛选状态
+        screening_status: 筛选状态（qualified/unqualified）
         condition_id: 筛选条件ID（按条件过滤人才）
         logic: 条件逻辑（and/or，默认 and）
         page: 页码（从 1 开始）
@@ -679,6 +681,13 @@ async def list_talents(
     Returns:
         APIResponse[PaginatedResponse[TalentDetailResponse]]: 分页数据响应
     """
+    status_map = {
+        "qualified": ScreeningStatusEnum.QUALIFIED,
+        "unqualified": ScreeningStatusEnum.DISQUALIFIED,
+        "disqualified": ScreeningStatusEnum.DISQUALIFIED,
+    }
+    screening_status_enum = status_map.get(screening_status) if screening_status else None
+
     logger.info(
         f"查询人才列表: name={name}, major={major}, school={school}, screening_status={screening_status}, condition_id={condition_id}, logic={logic}, page={page}"
     )
@@ -709,8 +718,8 @@ async def list_talents(
             filter_conditions.append(TalentInfo.major.ilike(f"%{major}%"))
         if school:
             filter_conditions.append(TalentInfo.school.ilike(f"%{school}%"))
-        if screening_status:
-            filter_conditions.append(TalentInfo.screening_status == screening_status)
+        if screening_status_enum:
+            filter_conditions.append(TalentInfo.screening_status == screening_status_enum)
         if screening_date_start:
             filter_conditions.append(TalentInfo.screening_date >= screening_date_start)
         if screening_date_end:
