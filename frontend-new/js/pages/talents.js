@@ -1,6 +1,6 @@
 /**
  * 人才信息查询模块
- * 提供搜索、表格展示、分页、详情查看功能
+ * 提供搜索、表格展示、分页、详情查看、编辑、批量操作功能
  */
 
 const TalentsPage = {
@@ -17,9 +17,11 @@ const TalentsPage = {
         school: '',
         screening_status: '',
         condition_id: '',
+        logic: 'and',
     },
     conditionList: [],
     selectedCondition: null,
+    selectedIds: new Set(),
     dataLoadedAt: null,
     CACHE_DURATION: 5 * 60 * 1000,
 
@@ -30,7 +32,6 @@ const TalentsPage = {
 
     async loadDataAsync() {
         const now = Date.now();
-        const cacheKey = JSON.stringify(this.filters) + this.pagination.page;
         
         if (this.talents.length > 0 && this.dataLoadedAt) {
             const age = now - this.dataLoadedAt;
@@ -61,9 +62,6 @@ const TalentsPage = {
         this.dataLoadedAt = null;
     },
 
-    /**
-     * 加载筛选条件列表
-     */
     async loadConditions() {
         try {
             const response = await conditionsApi.getList({ page_size: 100, is_active: true });
@@ -75,9 +73,6 @@ const TalentsPage = {
         }
     },
 
-    /**
-     * 当选择筛选条件时更新详情
-     */
     onConditionChange(conditionId) {
         if (conditionId) {
             this.selectedCondition = this.conditionList.find(c => c.id === conditionId);
@@ -87,9 +82,6 @@ const TalentsPage = {
         this.renderConditionDetail();
     },
 
-    /**
-     * 渲染筛选条件详情
-     */
     renderConditionDetail() {
         const container = document.getElementById('conditionDetail');
         if (!container) return;
@@ -149,9 +141,6 @@ const TalentsPage = {
         `;
     },
 
-    /**
-     * 清除筛选条件
-     */
     clearCondition() {
         this.filters.condition_id = '';
         this.selectedCondition = null;
@@ -160,9 +149,6 @@ const TalentsPage = {
         this.renderConditionDetail();
     },
 
-    /**
-     * 加载人才列表
-     */
     async loadTalents() {
         try {
             const params = {
@@ -170,12 +156,12 @@ const TalentsPage = {
                 page_size: this.pagination.pageSize,
             };
 
-            // 添加筛选条件
             if (this.filters.name) params.name = this.filters.name;
             if (this.filters.major) params.major = this.filters.major;
             if (this.filters.school) params.school = this.filters.school;
             if (this.filters.screening_status) params.screening_status = this.filters.screening_status;
             if (this.filters.condition_id) params.condition_id = this.filters.condition_id;
+            if (this.filters.logic) params.logic = this.filters.logic;
 
             const response = await talentsApi.getList(params);
 
@@ -190,18 +176,24 @@ const TalentsPage = {
         }
     },
 
-    /**
-     * 渲染页面内容
-     */
     renderContent() {
         return `
             <div class="talents-page">
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title">筛选条件</h3>
+                        <h3 class="card-title">搜索筛选</h3>
                     </div>
                     <div class="card-body">
                         <div class="filter-form">
+                            <div class="filter-row logic-row">
+                                <div class="filter-item logic-item">
+                                    <label class="form-label">条件逻辑</label>
+                                    <select class="form-control" id="filterLogic">
+                                        <option value="and" ${this.filters.logic === 'and' ? 'selected' : ''}>AND（所有条件都满足）</option>
+                                        <option value="or" ${this.filters.logic === 'or' ? 'selected' : ''}>OR（任一条件满足）</option>
+                                    </select>
+                                </div>
+                            </div>
                             <div class="filter-row">
                                 <div class="filter-item">
                                     <label class="form-label">姓名</label>
@@ -229,7 +221,7 @@ const TalentsPage = {
                             </div>
                             <div class="filter-row">
                                 <div class="filter-item">
-                                    <label class="form-label">筛选条件</label>
+                                    <label class="form-label">预设条件</label>
                                     <select class="form-control" id="filterCondition" onchange="TalentsPage.onConditionChange(this.value)">
                                         <option value="">不限</option>
                                         ${this.conditionList.map(c => `
@@ -263,9 +255,6 @@ const TalentsPage = {
         `;
     },
 
-    /**
-     * 静态渲染筛选条件详情（用于初始渲染）
-     */
     renderConditionDetailStatic() {
         if (!this.selectedCondition) return '';
         
@@ -319,15 +308,19 @@ const TalentsPage = {
         `;
     },
 
-    /**
-     * 渲染表格
-     */
     renderTable() {
+        const allSelected = this.talents.length > 0 && this.talents.every(t => this.selectedIds.has(t.id));
+        
         return `
+            ${this.selectedIds.size > 0 ? this.renderBatchToolbar() : ''}
             <div class="table-container">
                 <table class="table">
                     <thead>
                         <tr>
+                            <th class="checkbox-col">
+                                <input type="checkbox" id="selectAll" ${allSelected ? 'checked' : ''} 
+                                       onchange="TalentsPage.toggleSelectAll()">
+                            </th>
                             <th>姓名</th>
                             <th>学历</th>
                             <th>院校</th>
@@ -346,9 +339,36 @@ const TalentsPage = {
         `;
     },
 
-    /**
-     * 渲染表格行
-     */
+    renderBatchToolbar() {
+        return `
+            <div class="batch-toolbar">
+                <span class="batch-info">已选择 ${this.selectedIds.size} 项</span>
+                <div class="batch-actions">
+                    <button class="btn btn-sm btn-danger" onclick="TalentsPage.batchDelete()">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"/>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                        </svg>
+                        批量删除
+                    </button>
+                    <button class="btn btn-sm btn-success" onclick="TalentsPage.batchUpdateStatus('qualified')">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                        批量标记通过
+                    </button>
+                    <button class="btn btn-sm btn-warning" onclick="TalentsPage.batchUpdateStatus('unqualified')">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"/>
+                            <line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                        批量标记未通过
+                    </button>
+                </div>
+            </div>
+        `;
+    },
+
     renderRow(talent) {
         const educationLabels = {
             doctor: '博士',
@@ -362,9 +382,15 @@ const TalentsPage = {
         const statusBadge = talent.screening_status === 'qualified' 
             ? '<span class="badge badge-success">通过</span>'
             : '<span class="badge badge-danger">未通过</span>';
+        const isSelected = this.selectedIds.has(talent.id);
+        const rowClass = isSelected ? 'selected' : '';
 
         return `
-            <tr>
+            <tr class="${rowClass}">
+                <td class="checkbox-col">
+                    <input type="checkbox" ${isSelected ? 'checked' : ''} 
+                           onchange="TalentsPage.toggleSelect('${talent.id}')">
+                </td>
                 <td>
                     <div class="talent-name">${this.escapeHtml(talent.name)}</div>
                 </td>
@@ -382,6 +408,12 @@ const TalentsPage = {
                                 <circle cx="12" cy="12" r="3"/>
                             </svg>
                         </button>
+                        <button class="btn btn-ghost btn-sm" onclick="TalentsPage.showEditModal('${talent.id}')" title="编辑">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                            </svg>
+                        </button>
                         <button class="btn btn-ghost btn-sm btn-danger" onclick="TalentsPage.confirmDelete('${talent.id}', '${this.escapeHtml(talent.name)}')" title="删除">
                             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
                                 <polyline points="3 6 5 6 21 6"/>
@@ -396,9 +428,6 @@ const TalentsPage = {
         `;
     },
 
-    /**
-     * 渲染空状态
-     */
     renderEmpty() {
         return UI.renderEmpty(
             '暂无人才信息',
@@ -408,32 +437,24 @@ const TalentsPage = {
         );
     },
 
-    /**
-     * 初始化页面事件
-     */
     initEvents() {
-        // 查询按钮
         const applyFilter = document.getElementById('applyFilter');
         if (applyFilter) {
             applyFilter.addEventListener('click', () => this.applyFilter());
         }
 
-        // 重置按钮
         const resetFilter = document.getElementById('resetFilter');
         if (resetFilter) {
             resetFilter.addEventListener('click', () => this.resetFilter());
         }
 
-        // 分页事件
         UI.bindPaginationEvents((page) => this.changePage(page));
 
-        // 空状态按钮事件
         const emptyAction = document.getElementById('emptyAction');
         if (emptyAction) {
             emptyAction.addEventListener('click', () => Router.navigateTo('upload'));
         }
 
-        // 回车搜索
         ['filterName', 'filterMajor', 'filterSchool'].forEach(id => {
             const input = document.getElementById(id);
             if (input) {
@@ -446,58 +467,117 @@ const TalentsPage = {
         });
     },
 
-    /**
-     * 应用筛选条件
-     */
+    toggleSelectAll() {
+        const allSelected = this.talents.every(t => this.selectedIds.has(t.id));
+        if (allSelected) {
+            this.talents.forEach(t => this.selectedIds.delete(t.id));
+        } else {
+            this.talents.forEach(t => this.selectedIds.add(t.id));
+        }
+        this.updateContent();
+    },
+
+    toggleSelect(id) {
+        if (this.selectedIds.has(id)) {
+            this.selectedIds.delete(id);
+        } else {
+            this.selectedIds.add(id);
+        }
+        this.updateContent();
+    },
+
+    async batchDelete() {
+        if (this.selectedIds.size === 0) {
+            UI.toast('请先选择要删除的记录', 'warning');
+            return;
+        }
+
+        if (!confirm(`确定要删除选中的 ${this.selectedIds.size} 条记录吗？\n\n此操作可以恢复。`)) {
+            return;
+        }
+
+        try {
+            UI.showLoading();
+            const response = await talentsApi.batchDelete(Array.from(this.selectedIds));
+
+            if (response.success) {
+                UI.toast(response.message, 'success');
+                this.selectedIds.clear();
+                await this.refresh();
+            }
+        } catch (error) {
+            console.error('批量删除失败:', error);
+            UI.toast('批量删除失败: ' + error.message, 'error');
+        } finally {
+            UI.hideLoading();
+        }
+    },
+
+    async batchUpdateStatus(status) {
+        if (this.selectedIds.size === 0) {
+            UI.toast('请先选择要操作的记录', 'warning');
+            return;
+        }
+
+        const statusText = status === 'qualified' ? '通过' : '未通过';
+        if (!confirm(`确定要将选中的 ${this.selectedIds.size} 条记录标记为${statusText}吗？`)) {
+            return;
+        }
+
+        try {
+            UI.showLoading();
+            const response = await talentsApi.batchUpdateStatus(Array.from(this.selectedIds), status);
+
+            if (response.success) {
+                UI.toast(response.message, 'success');
+                this.selectedIds.clear();
+                await this.refresh();
+            }
+        } catch (error) {
+            console.error('批量更新状态失败:', error);
+            UI.toast('批量更新状态失败: ' + error.message, 'error');
+        } finally {
+            UI.hideLoading();
+        }
+    },
+
     applyFilter() {
         this.filters.name = document.getElementById('filterName')?.value.trim() || '';
         this.filters.major = document.getElementById('filterMajor')?.value.trim() || '';
         this.filters.school = document.getElementById('filterSchool')?.value.trim() || '';
         this.filters.screening_status = document.getElementById('filterStatus')?.value || '';
         this.filters.condition_id = document.getElementById('filterCondition')?.value || '';
+        this.filters.logic = document.getElementById('filterLogic')?.value || 'and';
         
         this.pagination.page = 1;
+        this.selectedIds.clear();
         this.refresh();
     },
 
-    /**
-     * 重置筛选条件
-     */
     resetFilter() {
-        this.filters = { name: '', major: '', school: '', screening_status: '', condition_id: '' };
+        this.filters = { name: '', major: '', school: '', screening_status: '', condition_id: '', logic: 'and' };
         this.selectedCondition = null;
         this.pagination.page = 1;
+        this.selectedIds.clear();
         this.refresh();
     },
 
-    /**
-     * 切换页码
-     */
     changePage(page) {
         this.pagination.page = page;
         this.refresh();
     },
 
-    /**
-     * 刷新页面
-     */
     async refresh() {
         this.dataLoadedAt = null;
         await this.loadDataAsync();
     },
 
-    /**
-     * 确认删除
-     */
     confirmDelete(id, name) {
         if (confirm(`确定要删除人才「${name}」吗？\n\n此操作可以恢复。`)) {
             this.deleteTalent(id);
         }
     },
 
-    /**
-     * 删除人才
-     */
     async deleteTalent(id) {
         try {
             UI.showLoading();
@@ -505,6 +585,7 @@ const TalentsPage = {
 
             if (response.success) {
                 UI.toast('删除成功', 'success');
+                this.selectedIds.delete(id);
                 await this.refresh();
             }
         } catch (error) {
@@ -515,9 +596,6 @@ const TalentsPage = {
         }
     },
 
-    /**
-     * 显示人才详情
-     */
     async showDetail(id) {
         try {
             UI.showLoading();
@@ -534,9 +612,22 @@ const TalentsPage = {
         }
     },
 
-    /**
-     * 渲染详情模态框
-     */
+    async showEditModal(id) {
+        try {
+            UI.showLoading();
+            const response = await talentsApi.getDetail(id);
+
+            if (response.success) {
+                this.renderEditModal(response.data);
+            }
+        } catch (error) {
+            console.error('获取人才详情失败:', error);
+            UI.toast('获取人才详情失败', 'error');
+        } finally {
+            UI.hideLoading();
+        }
+    },
+
     renderDetailModal(talent) {
         const educationLabels = {
             doctor: '博士',
@@ -551,7 +642,6 @@ const TalentsPage = {
             ? '<span class="badge badge-success">通过</span>'
             : '<span class="badge badge-danger">未通过</span>';
 
-        // 使用后端 API 地址获取头像
         const photoUrl = talent.id ? `http://localhost:8000/api/v1/talents/${talent.id}/photo` : '';
         const avatarContent = photoUrl 
             ? `<img src="${photoUrl}" alt="头像" class="avatar-image" onerror="this.style.display='none';this.nextElementSibling.style.display='block';">
@@ -641,9 +731,186 @@ const TalentsPage = {
         UI.showModal('人才详情', content, '', 'lg');
     },
 
-    /**
-     * HTML 转义
-     */
+    renderEditModal(talent) {
+        const educationOptions = [
+            { value: 'doctor', label: '博士' },
+            { value: 'master', label: '硕士' },
+            { value: 'bachelor', label: '本科' },
+            { value: 'college', label: '大专' },
+            { value: 'high_school', label: '高中及以下' },
+        ];
+
+        const educationLevel = talent.education_level || '';
+        const selectedEducation = educationOptions.find(opt => 
+            opt.value === educationLevel || opt.label === educationLevel
+        )?.value || 'bachelor';
+
+        const content = `
+            <div class="talent-edit-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">姓名</label>
+                        <input type="text" class="form-control" id="editName" value="${this.escapeHtml(talent.name || '')}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">学历</label>
+                        <select class="form-control" id="editEducation">
+                            ${educationOptions.map(opt => `
+                                <option value="${opt.value}" ${selectedEducation === opt.value ? 'selected' : ''}>${opt.label}</option>
+                            `).join('')}
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">院校</label>
+                        <input type="text" class="form-control" id="editSchool" value="${this.escapeHtml(talent.school || '')}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">专业</label>
+                        <input type="text" class="form-control" id="editMajor" value="${this.escapeHtml(talent.major || '')}">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">工作年限</label>
+                        <input type="number" class="form-control" id="editWorkYears" value="${talent.work_years || 0}" min="0" max="50">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">毕业日期</label>
+                        <input type="date" class="form-control" id="editGraduationDate" value="${talent.graduation_date || ''}">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">联系电话</label>
+                        <input type="text" class="form-control" id="editPhone" value="${this.escapeHtml(talent.phone || '')}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">电子邮箱</label>
+                        <input type="email" class="form-control" id="editEmail" value="${this.escapeHtml(talent.email || '')}">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">筛选状态</label>
+                        <select class="form-control" id="editScreeningStatus">
+                            <option value="qualified" ${talent.screening_status === 'qualified' ? 'selected' : ''}>通过</option>
+                            <option value="unqualified" ${talent.screening_status === 'unqualified' ? 'selected' : ''}>未通过</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">技能标签</label>
+                    <div class="skills-input-container">
+                        <div class="skills-tags-container" id="skillsTagsContainer">
+                            ${(talent.skills || []).map(skill => `
+                                <span class="skill-tag-edit" data-skill="${this.escapeHtml(skill)}">
+                                    ${this.escapeHtml(skill)}
+                                    <button type="button" class="skill-remove" onclick="TalentsPage.removeSkill('${this.escapeHtml(skill)}')">×</button>
+                                </span>
+                            `).join('')}
+                        </div>
+                        <div class="skill-input-row">
+                            <input type="text" class="form-control skill-input" id="newSkillInput" placeholder="输入技能名称">
+                            <button type="button" class="btn btn-sm btn-secondary" onclick="TalentsPage.addSkill()">添加</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const footer = `
+            <button class="btn btn-secondary" onclick="UI.closeModal()">取消</button>
+            <button class="btn btn-primary" onclick="TalentsPage.saveEdit('${talent.id}')">保存</button>
+        `;
+
+        UI.showModal('编辑人才信息', content, footer, 'lg');
+        
+        this.currentEditSkills = [...(talent.skills || [])];
+
+        const newSkillInput = document.getElementById('newSkillInput');
+        if (newSkillInput) {
+            newSkillInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.addSkill();
+                }
+            });
+        }
+    },
+
+    currentEditSkills: [],
+
+    addSkill() {
+        const input = document.getElementById('newSkillInput');
+        const skill = input?.value.trim();
+        
+        if (!skill) return;
+        if (this.currentEditSkills.includes(skill)) {
+            UI.toast('该技能已存在', 'warning');
+            return;
+        }
+
+        this.currentEditSkills.push(skill);
+        this.updateSkillsTags();
+        input.value = '';
+    },
+
+    removeSkill(skill) {
+        this.currentEditSkills = this.currentEditSkills.filter(s => s !== skill);
+        this.updateSkillsTags();
+    },
+
+    updateSkillsTags() {
+        const container = document.getElementById('skillsTagsContainer');
+        if (!container) return;
+
+        container.innerHTML = this.currentEditSkills.map(skill => `
+            <span class="skill-tag-edit" data-skill="${this.escapeHtml(skill)}">
+                ${this.escapeHtml(skill)}
+                <button type="button" class="skill-remove" onclick="TalentsPage.removeSkill('${this.escapeHtml(skill)}')">×</button>
+            </span>
+        `).join('');
+    },
+
+    async saveEdit(id) {
+        const data = {
+            name: document.getElementById('editName')?.value.trim() || null,
+            education_level: document.getElementById('editEducation')?.value || null,
+            school: document.getElementById('editSchool')?.value.trim() || null,
+            major: document.getElementById('editMajor')?.value.trim() || null,
+            work_years: parseInt(document.getElementById('editWorkYears')?.value) || null,
+            graduation_date: document.getElementById('editGraduationDate')?.value || null,
+            phone: document.getElementById('editPhone')?.value.trim() || null,
+            email: document.getElementById('editEmail')?.value.trim() || null,
+            screening_status: document.getElementById('editScreeningStatus')?.value || null,
+            skills: this.currentEditSkills.length > 0 ? this.currentEditSkills : null,
+        };
+
+        Object.keys(data).forEach(key => {
+            if (data[key] === null || data[key] === '') {
+                delete data[key];
+            }
+        });
+
+        try {
+            UI.showLoading();
+            const response = await talentsApi.update(id, data);
+
+            if (response.success) {
+                UI.toast('保存成功', 'success');
+                UI.closeModal();
+                await this.refresh();
+            }
+        } catch (error) {
+            console.error('保存失败:', error);
+            UI.toast('保存失败: ' + error.message, 'error');
+        } finally {
+            UI.hideLoading();
+        }
+    },
+
     escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;
@@ -651,7 +918,6 @@ const TalentsPage = {
     },
 };
 
-// 添加页面特定样式
 if (!document.getElementById('talents-styles')) {
     const talentsStyles = document.createElement('style');
     talentsStyles.id = 'talents-styles';
@@ -666,6 +932,14 @@ if (!document.getElementById('talents-styles')) {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
         gap: 16px;
+    }
+
+    .talents-page .filter-row.logic-row {
+        grid-template-columns: 1fr;
+    }
+
+    .talents-page .filter-item.logic-item {
+        max-width: 300px;
     }
 
     .talents-page .filter-item {
@@ -683,6 +957,46 @@ if (!document.getElementById('talents-styles')) {
     .talent-name {
         font-weight: 500;
         color: var(--text-primary);
+    }
+
+    .checkbox-col {
+        width: 40px;
+        text-align: center;
+    }
+
+    .checkbox-col input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+    }
+
+    .table tbody tr.selected {
+        background-color: var(--primary-bg);
+    }
+
+    .batch-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px;
+        background-color: var(--bg-secondary);
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .batch-info {
+        font-weight: 500;
+        color: var(--primary-color);
+    }
+
+    .batch-actions {
+        display: flex;
+        gap: 8px;
+    }
+
+    .batch-actions .btn-sm {
+        display: flex;
+        align-items: center;
+        gap: 4px;
     }
 
     .talent-detail .detail-header {
@@ -833,9 +1147,73 @@ if (!document.getElementById('talents-styles')) {
         background-color: var(--danger-bg);
     }
 
+    .talent-edit-form .form-row {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+        margin-bottom: 16px;
+    }
+
+    .talent-edit-form .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .skills-input-container {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .skills-tags-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        min-height: 32px;
+    }
+
+    .skill-tag-edit {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 8px;
+        background-color: var(--primary-bg);
+        color: var(--primary-color);
+        border-radius: 4px;
+        font-size: 13px;
+    }
+
+    .skill-remove {
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        cursor: pointer;
+        font-size: 16px;
+        line-height: 1;
+        padding: 0 2px;
+    }
+
+    .skill-remove:hover {
+        color: var(--danger-color);
+    }
+
+    .skill-input-row {
+        display: flex;
+        gap: 8px;
+    }
+
+    .skill-input-row .skill-input {
+        flex: 1;
+    }
+
     @media (max-width: 1024px) {
         .talents-page .filter-row {
             grid-template-columns: repeat(2, 1fr);
+        }
+
+        .talent-edit-form .form-row {
+            grid-template-columns: 1fr;
         }
     }
 

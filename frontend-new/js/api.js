@@ -299,6 +299,32 @@ const talentsApi = {
     restore(id) {
         return api.post(`/talents/${id}/restore`);
     },
+
+    /**
+     * 更新人才信息
+     * @param {string} id - 人才 ID
+     * @param {Object} data - 更新数据
+     */
+    update(id, data) {
+        return api.put(`/talents/${id}`, data);
+    },
+
+    /**
+     * 批量删除人才
+     * @param {string[]} ids - 人才 ID 列表
+     */
+    batchDelete(ids) {
+        return api.post('/talents/batch-delete', { ids });
+    },
+
+    /**
+     * 批量更新筛选状态
+     * @param {string[]} ids - 人才 ID 列表
+     * @param {string} screeningStatus - 筛选状态
+     */
+    batchUpdateStatus(ids, screeningStatus) {
+        return api.post('/talents/batch-update-status', { ids, screening_status: screeningStatus });
+    },
 };
 
 /**

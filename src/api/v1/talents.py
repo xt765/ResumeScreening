@@ -26,6 +26,7 @@ from src.api.deps import get_session
 from src.core.security import decrypt_data
 from src.models.talent import ScreeningStatusEnum, TalentInfo, WorkflowStatusEnum
 from src.schemas.common import APIResponse, PaginatedResponse
+from src.schemas.talent import BatchDeleteRequest, BatchUpdateStatusRequest, TalentUpdateRequest
 from src.storage.chroma_client import chroma_client
 from src.workflows.resume_workflow import run_resume_workflow
 
@@ -656,6 +657,7 @@ async def list_talents(
     ] = None,
     screening_status: Annotated[ScreeningStatusEnum | None, Query(description="筛选状态")] = None,
     condition_id: Annotated[str | None, Query(description="筛选条件ID")] = None,
+    logic: Annotated[str | None, Query(description="条件逻辑（and/or）")] = None,
     page: Annotated[int, Query(ge=1, description="页码")] = 1,
     page_size: Annotated[int, Query(ge=1, le=100, description="每页数量")] = 10,
 ) -> APIResponse[PaginatedResponse[TalentDetailResponse]]:
@@ -670,6 +672,7 @@ async def list_talents(
         screening_date_end: 选拔日期截止
         screening_status: 筛选状态
         condition_id: 筛选条件ID（按条件过滤人才）
+        logic: 条件逻辑（and/or，默认 and）
         page: 页码（从 1 开始）
         page_size: 每页数量
 
@@ -677,7 +680,7 @@ async def list_talents(
         APIResponse[PaginatedResponse[TalentDetailResponse]]: 分页数据响应
     """
     logger.info(
-        f"查询人才列表: name={name}, major={major}, school={school}, screening_status={screening_status}, condition_id={condition_id}, page={page}"
+        f"查询人才列表: name={name}, major={major}, school={school}, screening_status={screening_status}, condition_id={condition_id}, logic={logic}, page={page}"
     )
 
     try:
@@ -692,39 +695,42 @@ async def list_talents(
             if condition_record and condition_record.conditions:
                 condition_config = condition_record.conditions
 
-        conditions = [
+        base_conditions = [
             TalentInfo.workflow_status.in_(
                 [WorkflowStatusEnum.COMPLETED, WorkflowStatusEnum.STORING]
             ),
             TalentInfo.is_deleted == False,  # noqa: E712
         ]
 
+        filter_conditions = []
         if name:
-            conditions.append(TalentInfo.name.ilike(f"%{name}%"))
+            filter_conditions.append(TalentInfo.name.ilike(f"%{name}%"))
         if major:
-            conditions.append(TalentInfo.major.ilike(f"%{major}%"))
+            filter_conditions.append(TalentInfo.major.ilike(f"%{major}%"))
         if school:
-            conditions.append(TalentInfo.school.ilike(f"%{school}%"))
+            filter_conditions.append(TalentInfo.school.ilike(f"%{school}%"))
         if screening_status:
-            conditions.append(TalentInfo.screening_status == screening_status)
+            filter_conditions.append(TalentInfo.screening_status == screening_status)
         if screening_date_start:
-            conditions.append(TalentInfo.screening_date >= screening_date_start)
+            filter_conditions.append(TalentInfo.screening_date >= screening_date_start)
         if screening_date_end:
-            conditions.append(TalentInfo.screening_date <= screening_date_end)
+            filter_conditions.append(TalentInfo.screening_date <= screening_date_end)
 
         if condition_config:
             cond_conditions = _build_condition_filters(condition_config)
-            conditions.extend(cond_conditions)
+            filter_conditions.extend(cond_conditions)
 
-        # 查询总数
+        if logic == "or" and len(filter_conditions) > 1:
+            conditions = base_conditions + [or_(*filter_conditions)]
+        else:
+            conditions = base_conditions + filter_conditions
+
         count_query = select(func.count()).select_from(TalentInfo).where(and_(*conditions))
         total_result = await session.execute(count_query)
         total = total_result.scalar() or 0
 
-        # 计算总页数
         total_pages = math.ceil(total / page_size) if total > 0 else 0
 
-        # 分页查询
         offset = (page - 1) * page_size
         query = (
             select(TalentInfo)
@@ -737,7 +743,6 @@ async def list_talents(
         result = await session.execute(query)
         talents = result.scalars().all()
 
-        # 转换为响应模型
         items = [_map_to_response(t) for t in talents]
 
         logger.success(f"查询人才列表成功: total={total}, page={page}")
@@ -1175,6 +1180,206 @@ async def restore_talent(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"恢复人才失败: {e}",
+        ) from None
+
+
+@router.put(
+    "/{talent_id}",
+    response_model=APIResponse[TalentDetailResponse],
+    summary="更新人才信息",
+    description="更新指定人才的信息",
+)
+async def update_talent(
+    talent_id: str,
+    update_data: TalentUpdateRequest,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> APIResponse[TalentDetailResponse]:
+    """更新人才信息。
+
+    Args:
+        talent_id: 人才 ID
+        update_data: 更新数据
+        session: 数据库会话
+
+    Returns:
+        APIResponse[TalentDetailResponse]: 更新后的人才信息
+
+    Raises:
+        HTTPException: 人才不存在或更新失败
+    """
+    logger.info(f"更新人才信息: id={talent_id}")
+
+    try:
+        result = await session.execute(select(TalentInfo).where(TalentInfo.id == talent_id))
+        talent = result.scalar_one_or_none()
+
+        if not talent:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"人才不存在: {talent_id}",
+            )
+
+        from src.core.security import encrypt_data
+
+        update_fields = update_data.model_dump(exclude_unset=True)
+
+        if "phone" in update_fields and update_fields["phone"]:
+            update_fields["phone"] = encrypt_data(update_fields["phone"])
+        if "email" in update_fields and update_fields["email"]:
+            update_fields["email"] = encrypt_data(update_fields["email"])
+
+        if "screening_status" in update_fields:
+            status_value = update_fields["screening_status"]
+            if status_value in ["qualified", "unqualified"]:
+                update_fields["screening_status"] = ScreeningStatusEnum(status_value)
+            else:
+                del update_fields["screening_status"]
+
+        for field, value in update_fields.items():
+            setattr(talent, field, value)
+
+        await session.commit()
+        await session.refresh(talent)
+
+        logger.success(f"更新人才信息成功: id={talent_id}")
+
+        return APIResponse(
+            success=True,
+            message="更新成功",
+            data=_map_to_response(talent),
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"更新人才信息失败: {e}")
+        await session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"更新人才信息失败: {e}",
+        ) from None
+
+
+@router.post(
+    "/batch-delete",
+    response_model=APIResponse[dict[str, Any]],
+    summary="批量删除人才",
+    description="批量逻辑删除多个人才",
+)
+async def batch_delete_talents(
+    request: BatchDeleteRequest,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> APIResponse[dict[str, Any]]:
+    """批量删除人才。
+
+    Args:
+        request: 批量删除请求
+        session: 数据库会话
+
+    Returns:
+        APIResponse[dict[str, Any]]: 删除结果
+
+    Raises:
+        HTTPException: 删除失败
+    """
+    logger.info(f"批量删除人才: ids={request.ids}")
+
+    try:
+        result = await session.execute(select(TalentInfo).where(TalentInfo.id.in_(request.ids)))
+        talents = result.scalars().all()
+
+        deleted_count = 0
+        for talent in talents:
+            if not talent.is_deleted:
+                talent.is_deleted = True
+                deleted_count += 1
+
+        await session.commit()
+
+        logger.success(f"批量删除成功: deleted_count={deleted_count}")
+
+        return APIResponse(
+            success=True,
+            message=f"成功删除 {deleted_count} 条记录",
+            data={
+                "total": len(request.ids),
+                "deleted": deleted_count,
+            },
+        )
+
+    except Exception as e:
+        logger.exception(f"批量删除失败: {e}")
+        await session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"批量删除失败: {e}",
+        ) from None
+
+
+@router.post(
+    "/batch-update-status",
+    response_model=APIResponse[dict[str, Any]],
+    summary="批量更新筛选状态",
+    description="批量更新多个人才的筛选状态",
+)
+async def batch_update_status(
+    request: BatchUpdateStatusRequest,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> APIResponse[dict[str, Any]]:
+    """批量更新筛选状态。
+
+    Args:
+        request: 批量更新状态请求
+        session: 数据库会话
+
+    Returns:
+        APIResponse[dict[str, Any]]: 更新结果
+
+    Raises:
+        HTTPException: 更新失败
+    """
+    logger.info(f"批量更新状态: ids={request.ids}, status={request.screening_status}")
+
+    try:
+        if request.screening_status not in ["qualified", "unqualified"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="筛选状态必须是 qualified 或 unqualified",
+            )
+
+        new_status = ScreeningStatusEnum(request.screening_status)
+
+        result = await session.execute(select(TalentInfo).where(TalentInfo.id.in_(request.ids)))
+        talents = result.scalars().all()
+
+        updated_count = 0
+        for talent in talents:
+            talent.screening_status = new_status
+            updated_count += 1
+
+        await session.commit()
+
+        status_text = "通过" if new_status == ScreeningStatusEnum.QUALIFIED else "未通过"
+        logger.success(f"批量更新状态成功: updated_count={updated_count}")
+
+        return APIResponse(
+            success=True,
+            message=f"成功将 {updated_count} 条记录标记为{status_text}",
+            data={
+                "total": len(request.ids),
+                "updated": updated_count,
+                "status": request.screening_status,
+            },
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"批量更新状态失败: {e}")
+        await session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"批量更新状态失败: {e}",
         ) from None
 
 

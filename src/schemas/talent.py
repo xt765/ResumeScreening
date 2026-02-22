@@ -405,3 +405,55 @@ class TalentListResponse(BaseModel):
     page: int = Field(..., ge=1, description="当前页码")
     page_size: int = Field(..., ge=1, le=100, description="每页数量")
     total_pages: int = Field(..., ge=0, description="总页数")
+
+
+class TalentUpdateRequest(BaseModel):
+    """人才信息更新请求模型。
+
+    用于更新人才信息。
+
+    Attributes:
+        name: 候选人姓名。
+        phone: 联系电话。
+        email: 电子邮箱。
+        education_level: 学历层次。
+        school: 毕业院校。
+        major: 专业。
+        graduation_date: 毕业日期。
+        skills: 技能列表。
+        work_years: 工作年限。
+        screening_status: 筛选状态。
+    """
+
+    name: str | None = Field(default=None, min_length=1, max_length=50, description="候选人姓名")
+    phone: str | None = Field(default=None, min_length=11, max_length=20, description="联系电话")
+    email: EmailStr | None = Field(default=None, description="电子邮箱")
+    education_level: EducationLevel | None = Field(default=None, description="学历层次")
+    school: str | None = Field(default=None, min_length=1, max_length=100, description="毕业院校")
+    major: str | None = Field(default=None, min_length=1, max_length=100, description="专业")
+    graduation_date: date | None = Field(default=None, description="毕业日期")
+    skills: list[str] | None = Field(default=None, description="技能列表")
+    work_years: int | None = Field(default=None, ge=0, le=50, description="工作年限")
+    screening_status: str | None = Field(default=None, description="筛选状态")
+
+
+class BatchDeleteRequest(BaseModel):
+    """批量删除请求模型。
+
+    Attributes:
+        ids: 人才ID列表。
+    """
+
+    ids: list[str] = Field(..., min_length=1, description="人才ID列表")
+
+
+class BatchUpdateStatusRequest(BaseModel):
+    """批量更新状态请求模型。
+
+    Attributes:
+        ids: 人才ID列表。
+        screening_status: 筛选状态。
+    """
+
+    ids: list[str] = Field(..., min_length=1, description="人才ID列表")
+    screening_status: str = Field(..., description="筛选状态（qualified/unqualified）")
