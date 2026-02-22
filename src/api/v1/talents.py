@@ -1230,8 +1230,13 @@ async def update_talent(
 
         if "screening_status" in update_fields:
             status_value = update_fields["screening_status"]
-            if status_value in ["qualified", "unqualified"]:
-                update_fields["screening_status"] = ScreeningStatusEnum(status_value)
+            status_map = {
+                "qualified": ScreeningStatusEnum.QUALIFIED,
+                "unqualified": ScreeningStatusEnum.DISQUALIFIED,
+                "disqualified": ScreeningStatusEnum.DISQUALIFIED,
+            }
+            if status_value in status_map:
+                update_fields["screening_status"] = status_map[status_value]
             else:
                 del update_fields["screening_status"]
 
@@ -1341,13 +1346,19 @@ async def batch_update_status(
     logger.info(f"批量更新状态: ids={request.ids}, status={request.screening_status}")
 
     try:
-        if request.screening_status not in ["qualified", "unqualified"]:
+        status_map = {
+            "qualified": ScreeningStatusEnum.QUALIFIED,
+            "unqualified": ScreeningStatusEnum.DISQUALIFIED,
+            "disqualified": ScreeningStatusEnum.DISQUALIFIED,
+        }
+
+        if request.screening_status not in status_map:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="筛选状态必须是 qualified 或 unqualified",
             )
 
-        new_status = ScreeningStatusEnum(request.screening_status)
+        new_status = status_map[request.screening_status]
 
         result = await session.execute(select(TalentInfo).where(TalentInfo.id.in_(request.ids)))
         talents = result.scalars().all()
