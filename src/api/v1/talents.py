@@ -186,28 +186,31 @@ def _build_condition_filters(config: dict[str, Any]) -> list:
         if major_conditions:
             filters.append(or_(*major_conditions))
 
-    school_tier = config.get("school_tier")
-    if school_tier:
-        tier_schools = {
-            "top": [
-                "985",
-                "C9",
-                "清华",
-                "北大",
-                "复旦",
-                "上交",
-                "浙大",
-                "中科大",
-                "南大",
-                "西交",
-                "哈工大",
-            ],
-            "key": ["211", "重点"],
-            "overseas": ["大学", "University", "学院", "College"],
-        }
-        tier_keywords = tier_schools.get(school_tier, [])
-        if tier_keywords:
-            school_conditions = [TalentInfo.school.ilike(f"%{kw}%") for kw in tier_keywords]
+    school_tiers = config.get("school_tier")
+    if school_tiers:
+        from src.utils.school_tier_data import (
+            SCHOOLS_211_NON_985,
+            SCHOOLS_985,
+            OVERSEAS_TOP_SCHOOLS,
+        )
+
+        if isinstance(school_tiers, str):
+            school_tiers = [school_tiers]
+
+        all_keywords = []
+        for tier in school_tiers:
+            if tier == "985_211":
+                for full_name, aliases in SCHOOLS_985.items():
+                    all_keywords.extend(aliases + [full_name])
+                for full_name, aliases in SCHOOLS_211_NON_985.items():
+                    all_keywords.extend(aliases + [full_name])
+            elif tier == "overseas":
+                for full_name, aliases in OVERSEAS_TOP_SCHOOLS.items():
+                    all_keywords.extend(aliases + [full_name])
+
+        all_keywords = list(set(all_keywords))
+        if all_keywords:
+            school_conditions = [TalentInfo.school.ilike(f"%{kw}%") for kw in all_keywords]
             if school_conditions:
                 filters.append(or_(*school_conditions))
 
@@ -349,13 +352,15 @@ async def upload_and_screen(
 )
 async def batch_upload(
     files: Annotated[list[UploadFile], File(description="简历文件列表")],
-    condition_id: Annotated[str | None, Query(description="筛选条件ID")] = None,
+    condition_id: Annotated[str | None, Query(description="筛选条件ID（向后兼容）")] = None,
+    filter_config: Annotated[str | None, Query(description="筛选配置JSON")] = None,
 ) -> APIResponse[dict[str, Any]]:
     """批量上传简历。
 
     Args:
         files: 上传的简历文件列表
-        condition_id: 筛选条件 ID
+        condition_id: 筛选条件 ID（向后兼容）
+        filter_config: 筛选配置 JSON（新格式）
 
     Returns:
         APIResponse[dict[str, Any]]: 包含任务 ID 的响应
@@ -363,10 +368,28 @@ async def batch_upload(
     Raises:
         HTTPException: 文件验证失败
     """
+    import json
+
     from src.core.tasks import task_manager
     from src.workflows.resume_workflow import run_resume_workflow
 
-    logger.info(f"收到批量上传请求: file_count={len(files)}, condition_id={condition_id}")
+    # 解析筛选配置
+    parsed_filter_config: dict[str, Any] | None = None
+    if filter_config:
+        try:
+            parsed_filter_config = json.loads(filter_config)
+        except json.JSONDecodeError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="筛选配置 JSON 格式无效",
+            )
+    elif condition_id:
+        parsed_filter_config = {"condition_id": condition_id}
+
+    logger.info(
+        f"收到批量上传请求: file_count={len(files)}, "
+        f"condition_id={condition_id}, filter_config={parsed_filter_config}"
+    )
 
     # 验证文件数量
     if len(files) > 50:
@@ -406,7 +429,11 @@ async def batch_upload(
     # 创建任务
     task = await task_manager.create_task(
         name=f"批量上传简历 ({len(file_data_list)} 个文件)",
-        metadata={"condition_id": condition_id, "file_count": len(file_data_list)},
+        metadata={
+            "condition_id": condition_id,
+            "filter_config": parsed_filter_config,
+            "file_count": len(file_data_list),
+        },
     )
 
     # 定义批量处理函数
@@ -462,6 +489,7 @@ async def batch_upload(
                     result = await run_resume_workflow(
                         file_path=temp_path,
                         condition_id=condition_id,
+                        filter_config=parsed_filter_config,
                         content_hash=content_hash,
                     )
 

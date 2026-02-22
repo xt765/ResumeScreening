@@ -52,6 +52,91 @@ def _handle_error(state: ResumeState, error: Exception, node_name: str) -> dict[
     }
 
 
+async def _load_and_merge_conditions(filter_config: dict[str, Any]) -> dict[str, Any]:
+    """加载并合并复杂筛选配置中的所有条件。
+
+    Args:
+        filter_config: 复杂筛选配置
+
+    Returns:
+        dict[str, Any]: 合并后的筛选条件配置
+    """
+    from sqlalchemy import select
+
+    from src.models import async_session_factory
+    from src.models.condition import ScreeningCondition
+
+    groups = filter_config.get("groups", [])
+    exclude_ids = filter_config.get("exclude_condition_ids", [])
+
+    all_condition_ids: set[str] = set()
+    for group in groups:
+        all_condition_ids.update(group.get("condition_ids", []))
+    all_condition_ids.update(exclude_ids)
+
+    if not all_condition_ids:
+        return {}
+
+    conditions_map: dict[str, dict[str, Any]] = {}
+
+    async with async_session_factory() as session:
+        result = await session.execute(
+            select(ScreeningCondition).where(ScreeningCondition.id.in_(all_condition_ids))
+        )
+        condition_records = result.scalars().all()
+
+        for record in condition_records:
+            if record.conditions:
+                conditions_map[record.id] = record.conditions
+
+    merged_config: dict[str, Any] = {
+        "skills": [],
+        "major": [],
+        "school_tier": [],
+        "locations": [],
+        "certifications": [],
+        "keywords": [],
+    }
+
+    for cond_id, cond_config in conditions_map.items():
+        if cond_config.get("skills"):
+            merged_config["skills"].extend(cond_config["skills"])
+        if cond_config.get("major"):
+            merged_config["major"].extend(cond_config["major"])
+        if cond_config.get("school_tier"):
+            if isinstance(cond_config["school_tier"], list):
+                merged_config["school_tier"].extend(cond_config["school_tier"])
+            else:
+                merged_config["school_tier"].append(cond_config["school_tier"])
+        if cond_config.get("locations"):
+            merged_config["locations"].extend(cond_config["locations"])
+        if cond_config.get("certifications"):
+            merged_config["certifications"].extend(cond_config["certifications"])
+        if cond_config.get("keywords"):
+            merged_config["keywords"].extend(cond_config["keywords"])
+
+        if cond_config.get("education_level") and "education_level" not in merged_config:
+            merged_config["education_level"] = cond_config["education_level"]
+
+        if cond_config.get("experience_years") and "experience_years" not in merged_config:
+            merged_config["experience_years"] = cond_config["experience_years"]
+
+        if cond_config.get("experience_years_max") and "experience_years_max" not in merged_config:
+            merged_config["experience_years_max"] = cond_config["experience_years_max"]
+
+    merged_config["skills"] = list(set(merged_config["skills"]))
+    merged_config["major"] = list(set(merged_config["major"]))
+    merged_config["school_tier"] = list(set(merged_config["school_tier"]))
+    merged_config["locations"] = list(set(merged_config["locations"]))
+    merged_config["certifications"] = list(set(merged_config["certifications"]))
+    merged_config["keywords"] = list(set(merged_config["keywords"]))
+
+    merged_config["_filter_config"] = filter_config
+
+    logger.info(f"合并筛选条件配置: {merged_config}")
+    return merged_config
+
+
 async def parse_extract_wrapper(state: ResumeState) -> dict[str, Any]:
     """解析提取节点包装器。
 
@@ -264,6 +349,7 @@ async def run_resume_workflow(
     file_path: str,
     condition_id: str | None = None,
     condition_config: dict[str, Any] | None = None,
+    filter_config: dict[str, Any] | None = None,
     content_hash: str | None = None,
 ) -> dict[str, Any]:
     """运行简历处理工作流。
@@ -272,8 +358,9 @@ async def run_resume_workflow(
 
     Args:
         file_path: 简历文件路径
-        condition_id: 筛选条件 ID
-        condition_config: 筛选条件配置
+        condition_id: 筛选条件 ID（向后兼容）
+        condition_config: 筛选条件配置（向后兼容）
+        filter_config: 复杂筛选配置（新格式）
         content_hash: 简历内容哈希（用于去重）
 
     Returns:
@@ -284,23 +371,36 @@ async def run_resume_workflow(
 
     Example:
         ```python
+        # 简单模式
         result = await run_resume_workflow(
             file_path="/path/to/resume.pdf",
             condition_id="xxx-xxx-xxx",
-            condition_config={
-                "skills": ["Python", "FastAPI"],
-                "education_level": "本科",
-                "experience_years": 3,
+        )
+
+        # 复杂模式
+        result = await run_resume_workflow(
+            file_path="/path/to/resume.pdf",
+            filter_config={
+                "groups": [{"logic": "and", "condition_ids": ["id1", "id2"]}],
+                "group_logic": "and",
+                "exclude_condition_ids": ["id3"],
             },
         )
-        print(f"筛选结果: {result['is_qualified']}")
         ```
     """
     start_time = time.time()
-    logger.info(f"开始运行简历处理工作流: file_path={file_path}, condition_id={condition_id}")
+    logger.info(
+        f"开始运行简历处理工作流: file_path={file_path}, "
+        f"condition_id={condition_id}, filter_config={filter_config}"
+    )
 
     try:
-        if not condition_config and condition_id:
+        # 处理复杂筛选配置
+        if filter_config and "groups" in filter_config:
+            # 复杂筛选配置：加载所有条件并合并
+            condition_config = await _load_and_merge_conditions(filter_config)
+        elif not condition_config and condition_id:
+            # 向后兼容：单个条件 ID
             from sqlalchemy import select
 
             from src.models import async_session_factory
@@ -321,6 +421,7 @@ async def run_resume_workflow(
             file_path=file_path,
             condition_id=condition_id,
             condition_config=condition_config,
+            filter_config=filter_config,
             content_hash=content_hash,
         )
 

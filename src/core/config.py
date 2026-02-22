@@ -229,6 +229,33 @@ class AppSettings(BaseSettings):
         return v
 
 
+class JWTSettings(BaseSettings):
+    """JWT 认证配置。
+
+    Attributes:
+        secret_key: JWT 密钥
+        algorithm: JWT 算法
+        access_token_expire_minutes: 访问令牌过期时间（分钟）
+    """
+
+    model_config = SettingsConfigDict(
+        env_prefix="JWT_",
+        env_file=str(ENV_FILE),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    secret_key: str = Field(
+        default="resume-screening-jwt-secret-key-32bytes!",
+        description="JWT 密钥",
+    )
+    algorithm: str = Field(default="HS256", description="JWT 算法")
+    access_token_expire_minutes: int = Field(
+        default=1440,
+        description="访问令牌过期时间（分钟），默认 24 小时",
+    )
+
+
 class Settings(BaseSettings):
     """应用总配置类。
 
@@ -242,6 +269,7 @@ class Settings(BaseSettings):
         deepseek: DeepSeek LLM 配置
         dashscope: DashScope Embedding 配置
         app: 应用运行配置
+        jwt: JWT 认证配置
     """
 
     mysql: MySQLSettings = Field(default_factory=MySQLSettings)
@@ -251,6 +279,7 @@ class Settings(BaseSettings):
     deepseek: DeepSeekSettings = Field(default_factory=DeepSeekSettings)
     dashscope: DashScopeSettings = Field(default_factory=DashScopeSettings)
     app: AppSettings = Field(default_factory=AppSettings)
+    jwt: JWTSettings = Field(default_factory=JWTSettings)
 
 
 @lru_cache

@@ -873,13 +873,13 @@ const UploadPage = {
                 progress: { current: 0, total: this.uploadedFiles.length, percentage: 0, message: '正在提交...' }
             });
 
-            // 获取第一个条件 ID（向后兼容）
-            const firstConditionId = this.conditionGroups[0]?.conditionIds[0] || null;
+            // 获取完整筛选配置
+            const filterConfig = this.getFilterConfig();
 
             // 统一使用批量上传接口
             const response = await talentsApi.batchUpload(
                 this.uploadedFiles,
-                firstConditionId
+                filterConfig
             );
 
             if (response.success) {

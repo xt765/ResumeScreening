@@ -464,14 +464,21 @@ const ConditionsPage = {
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">学校层次</label>
-                        <select class="form-control" id="schoolTier">
-                            <option value="">不限</option>
-                            <option value="top" ${config.school_tier === 'top' ? 'selected' : ''}>顶尖院校（985/C9）</option>
-                            <option value="key" ${config.school_tier === 'key' ? 'selected' : ''}>重点院校（211）</option>
-                            <option value="ordinary" ${config.school_tier === 'ordinary' ? 'selected' : ''}>普通院校</option>
-                            <option value="overseas" ${config.school_tier === 'overseas' ? 'selected' : ''}>海外院校</option>
-                        </select>
+                        <label class="form-label">学校层次（可多选）</label>
+                        <div class="checkbox-group" id="schoolTierGroup">
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="schoolTier" value="985_211" ${Array.isArray(config.school_tier) && config.school_tier.includes('985_211') ? 'checked' : ''}>
+                                <span>985/211 院校</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="schoolTier" value="overseas" ${Array.isArray(config.school_tier) && config.school_tier.includes('overseas') ? 'checked' : ''}>
+                                <span>海外知名院校</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="schoolTier" value="ordinary" ${Array.isArray(config.school_tier) && config.school_tier.includes('ordinary') ? 'checked' : ''}>
+                                <span>普通国内院校</span>
+                            </label>
+                        </div>
                     </div>
 
                     <div class="form-group">
@@ -554,8 +561,13 @@ const ConditionsPage = {
         const description = document.getElementById('conditionDesc')?.value.trim();
         const educationLevel = document.getElementById('educationLevel')?.value;
         const experienceYears = document.getElementById('experienceYears')?.value;
-        const schoolTier = document.getElementById('schoolTier')?.value;
         const isActive = document.getElementById('isActive')?.value === 'true';
+
+        // 获取学校层次（多选）
+        const schoolTier = [];
+        document.querySelectorAll('input[name="schoolTier"]:checked').forEach(checkbox => {
+            schoolTier.push(checkbox.value);
+        });
 
         // 获取技能标签
         const skills = [];
@@ -583,7 +595,7 @@ const ConditionsPage = {
                 education_level: educationLevel || undefined,
                 experience_years: experienceYears ? parseInt(experienceYears) : undefined,
                 major,
-                school_tier: schoolTier || undefined,
+                school_tier: schoolTier.length > 0 ? schoolTier : undefined,
             },
         };
     },

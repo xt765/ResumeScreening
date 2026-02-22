@@ -16,41 +16,63 @@ const AppState = {
  * 页面配置
  */
 const PageConfig = {
+    login: {
+        title: '登录',
+        subtitle: '请登录以继续使用系统',
+        icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>',
+        render: () => LoginPage.render(),
+        requireAuth: false,
+        hideLayout: true,
+    },
     dashboard: {
         title: '系统概览',
         subtitle: '查看系统整体运行状态和关键指标',
         icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
         render: () => DashboardPage.render(),
+        requireAuth: false,
     },
     conditions: {
         title: '筛选条件',
         subtitle: '创建和管理简历筛选条件',
         icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>',
         render: () => ConditionsPage.render(),
+        requireAuth: false,
     },
     upload: {
         title: '简历上传',
         subtitle: '上传简历文件进行智能筛选',
         icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
         render: () => UploadPage.render(),
+        requireAuth: false,
     },
     talents: {
         title: '人才信息',
         subtitle: '搜索和查看通过筛选的人才信息',
         icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
         render: () => TalentsPage.render(),
+        requireAuth: false,
     },
     analysis: {
         title: '数据分析',
         subtitle: 'RAG 智能查询和统计分析',
         icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
         render: () => AnalysisPage.render(),
+        requireAuth: false,
     },
     monitor: {
         title: '系统监控',
         subtitle: '实时监控系统运行状态和日志信息',
         icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>',
         render: () => MonitorPage.render(),
+        requireAuth: false,
+    },
+    users: {
+        title: '用户管理',
+        subtitle: '管理系统用户账号',
+        icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+        render: () => UsersPage.render(),
+        requireAuth: true,
+        requireRole: 'admin',
     },
 };
 
@@ -76,6 +98,16 @@ const Router = {
         if (page === AppState.currentPage) {
             return;
         }
+
+        const pageConfig = PageConfig[page];
+        
+        if (pageConfig?.hideLayout) {
+            document.querySelector('.app-container').style.display = 'none';
+            document.body.classList.add('login-page');
+        } else {
+            document.querySelector('.app-container').style.display = 'flex';
+            document.body.classList.remove('login-page');
+        }
         
         AppState.currentPage = page;
         
@@ -87,21 +119,21 @@ const Router = {
         });
 
         const pageTitle = document.getElementById('pageTitle');
-        if (pageTitle && PageConfig[page]) {
-            pageTitle.textContent = PageConfig[page].title;
+        if (pageTitle && pageConfig) {
+            pageTitle.textContent = pageConfig.title;
         }
         
         const pageSubtitle = document.getElementById('pageSubtitle');
-        if (pageSubtitle && PageConfig[page]) {
-            pageSubtitle.textContent = PageConfig[page].subtitle || '';
+        if (pageSubtitle && pageConfig) {
+            pageSubtitle.textContent = pageConfig.subtitle || '';
         }
         
         const pageIcon = document.getElementById('pageIcon');
-        if (pageIcon && PageConfig[page] && PageConfig[page].icon) {
-            pageIcon.innerHTML = PageConfig[page].icon;
+        if (pageIcon && pageConfig && pageConfig.icon) {
+            pageIcon.innerHTML = pageConfig.icon;
         }
         
-        if (PageConfig[page]) {
+        if (pageConfig) {
             this.renderPage(page);
         } else {
             this.renderPage('dashboard');
@@ -488,9 +520,240 @@ const ModalEvents = {
 };
 
 /**
+ * 用户信息区域管理
+ */
+const UserArea = {
+    /**
+     * 初始化用户信息区域
+     */
+    init() {
+        this.updateDisplay();
+        this.bindEvents();
+        
+        // 监听登录/登出事件
+        window.addEventListener('auth:login', () => this.updateDisplay());
+        window.addEventListener('auth:logout', () => this.updateDisplay());
+    },
+
+    /**
+     * 更新用户信息显示
+     */
+    updateDisplay() {
+        const userInfoArea = document.getElementById('userInfoArea');
+        const loginBtn = document.getElementById('loginBtn');
+        const userName = document.getElementById('userName');
+        const user = getStoredUser();
+
+        if (user) {
+            // 已登录状态
+            if (userInfoArea) userInfoArea.style.display = 'flex';
+            if (loginBtn) loginBtn.style.display = 'none';
+            if (userName) userName.textContent = user.nickname || user.username;
+            
+            // 管理员显示用户管理菜单
+            this.updateAdminMenu(user.role);
+        } else {
+            // 未登录状态
+            if (userInfoArea) userInfoArea.style.display = 'none';
+            if (loginBtn) loginBtn.style.display = 'inline-flex';
+        }
+    },
+
+    /**
+     * 更新管理员菜单
+     */
+    updateAdminMenu(role) {
+        const existingUserNav = document.querySelector('.nav-item[data-page="users"]');
+        
+        if (role === 'admin' && !existingUserNav) {
+            const nav = document.querySelector('.sidebar-nav');
+            if (nav) {
+                const userNavItem = document.createElement('a');
+                userNavItem.href = '#/users';
+                userNavItem.className = 'nav-item';
+                userNavItem.dataset.page = 'users';
+                userNavItem.innerHTML = `
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                    <span>用户管理</span>
+                `;
+                nav.appendChild(userNavItem);
+                
+                userNavItem.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    Router.navigateTo('users');
+                    if (window.innerWidth <= 1024) {
+                        document.querySelector('.sidebar').classList.remove('open');
+                    }
+                });
+            }
+        } else if (role !== 'admin' && existingUserNav) {
+            existingUserNav.remove();
+        }
+    },
+
+    /**
+     * 绑定事件
+     */
+    bindEvents() {
+        const userInfoArea = document.getElementById('userInfoArea');
+        const userDropdown = document.getElementById('userDropdown');
+        const loginBtn = document.getElementById('loginBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const changePasswordBtn = document.getElementById('changePasswordBtn');
+
+        // 点击用户区域显示/隐藏下拉菜单
+        if (userInfoArea && userDropdown) {
+            userInfoArea.addEventListener('click', (e) => {
+                e.stopPropagation();
+                userInfoArea.classList.toggle('active');
+                userDropdown.classList.toggle('show');
+            });
+
+            // 点击外部关闭下拉菜单
+            document.addEventListener('click', (e) => {
+                if (!userInfoArea.contains(e.target)) {
+                    userInfoArea.classList.remove('active');
+                    userDropdown.classList.remove('show');
+                }
+            });
+        }
+
+        // 登录按钮
+        if (loginBtn) {
+            loginBtn.addEventListener('click', () => {
+                Router.navigateTo('login');
+            });
+        }
+
+        // 登出按钮
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', async () => {
+                await authApi.logout();
+                UI.toast('已退出登录', 'info');
+                Router.navigateTo('dashboard');
+            });
+        }
+
+        // 修改密码按钮
+        if (changePasswordBtn) {
+            changePasswordBtn.addEventListener('click', () => {
+                this.showChangePasswordModal();
+            });
+        }
+    },
+
+    /**
+     * 显示修改密码模态框
+     */
+    showChangePasswordModal() {
+        const content = `
+            <div class="change-password-form">
+                <div class="form-group">
+                    <label class="form-label" for="oldPassword">当前密码</label>
+                    <input type="password" id="oldPassword" class="form-input" placeholder="请输入当前密码" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="newPassword">新密码</label>
+                    <input type="password" id="newPassword" class="form-input" placeholder="请输入新密码（至少6位）" required minlength="6">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="confirmPassword">确认新密码</label>
+                    <input type="password" id="confirmPassword" class="form-input" placeholder="请再次输入新密码" required>
+                </div>
+                <div class="form-error" id="passwordError"></div>
+            </div>
+        `;
+
+        const footer = `
+            <button class="btn btn-secondary" id="cancelPasswordChange">取消</button>
+            <button class="btn btn-primary" id="submitPasswordChange">确认修改</button>
+        `;
+
+        UI.showModal('修改密码', content, footer);
+
+        setTimeout(() => {
+            const submitBtn = document.getElementById('submitPasswordChange');
+            const cancelBtn = document.getElementById('cancelPasswordChange');
+
+            if (submitBtn) {
+                submitBtn.addEventListener('click', async () => {
+                    await this.handleChangePassword();
+                });
+            }
+
+            if (cancelBtn) {
+                cancelBtn.addEventListener('click', () => {
+                    UI.closeModal();
+                });
+            }
+        }, 100);
+    },
+
+    /**
+     * 处理修改密码
+     */
+    async handleChangePassword() {
+        const oldPassword = document.getElementById('oldPassword')?.value;
+        const newPassword = document.getElementById('newPassword')?.value;
+        const confirmPassword = document.getElementById('confirmPassword')?.value;
+        const errorDiv = document.getElementById('passwordError');
+
+        if (!oldPassword || !newPassword || !confirmPassword) {
+            if (errorDiv) {
+                errorDiv.textContent = '请填写所有字段';
+                errorDiv.style.display = 'block';
+            }
+            return;
+        }
+
+        if (newPassword !== confirmPassword) {
+            if (errorDiv) {
+                errorDiv.textContent = '两次输入的新密码不一致';
+                errorDiv.style.display = 'block';
+            }
+            return;
+        }
+
+        if (newPassword.length < 6) {
+            if (errorDiv) {
+                errorDiv.textContent = '新密码长度至少为6位';
+                errorDiv.style.display = 'block';
+            }
+            return;
+        }
+
+        try {
+            const response = await authApi.changePassword(oldPassword, newPassword);
+            if (response.success) {
+                UI.toast('密码修改成功', 'success');
+                UI.closeModal();
+            } else {
+                if (errorDiv) {
+                    errorDiv.textContent = response.message || '密码修改失败';
+                    errorDiv.style.display = 'block';
+                }
+            }
+        } catch (error) {
+            if (errorDiv) {
+                errorDiv.textContent = error.message || '密码修改失败';
+                errorDiv.style.display = 'block';
+            }
+        }
+    },
+};
+
+/**
  * 应用初始化
  */
 function initApp() {
+    // 初始化用户信息区域
+    UserArea.init();
+
     // 初始化侧边栏
     Sidebar.init();
 

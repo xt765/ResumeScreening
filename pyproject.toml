@@ -35,6 +35,8 @@ dependencies = [
     "loguru>=0.7.0",
     "opencv-python>=4.8.0",
     "psutil>=6.0.0",
+    "python-jose[cryptography]>=3.3.0",
+    "passlib[bcrypt]>=1.7.4",
 ]
 
 [project.optional-dependencies]

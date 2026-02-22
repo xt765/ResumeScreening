@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import (
 from .base import Base, TimestampMixin, metadata
 from .condition import ScreeningCondition, StatusEnum
 from .talent import ScreeningStatusEnum, TalentInfo, WorkflowStatusEnum
+from .user import RoleEnum, User
 
 
 # 异步引擎（延迟初始化）
@@ -152,11 +153,13 @@ async def drop_tables() -> None:
 
 __all__ = [
     "Base",
+    "RoleEnum",
     "ScreeningCondition",
     "ScreeningStatusEnum",
     "StatusEnum",
     "TalentInfo",
     "TimestampMixin",
+    "User",
     "WorkflowStatusEnum",
     "async_session_factory",
     "close_db",

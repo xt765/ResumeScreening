@@ -23,6 +23,7 @@ class ResumeState(BaseModel):
         candidate_info: LLM 提取的候选人信息
         condition_id: 筛选条件 ID
         condition_config: 筛选条件配置
+        filter_config: 复杂筛选配置（新格式）
         is_qualified: 是否符合筛选条件
         qualification_reason: 筛选结果原因
         talent_id: 入库后的人才 ID
@@ -48,6 +49,7 @@ class ResumeState(BaseModel):
     # 筛选条件
     condition_id: str | None = Field(default=None, description="筛选条件 ID")
     condition_config: dict[str, Any] | None = Field(default=None, description="筛选条件配置")
+    filter_config: dict[str, Any] | None = Field(default=None, description="复杂筛选配置（新格式）")
 
     # 筛选结果
     is_qualified: bool | None = Field(default=None, description="是否符合筛选条件")

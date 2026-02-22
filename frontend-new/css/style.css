@@ -1408,3 +1408,302 @@ select.form-control {
     background-color: var(--primary-bg);
     border-radius: var(--radius-sm);
 }
+
+/* ========================================
+   登录页面样式
+======================================== */
+.login-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 20px;
+}
+
+.login-card {
+    width: 100%;
+    max-width: 420px;
+    background-color: var(--bg-primary);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+}
+
+.login-header {
+    text-align: center;
+    padding: 40px 40px 30px;
+}
+
+.login-logo {
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 20px;
+    background-color: var(--primary-bg);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary-color);
+}
+
+.login-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 8px;
+}
+
+.login-subtitle {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.login-form {
+    padding: 0 40px 40px;
+}
+
+.login-form .form-group {
+    margin-bottom: 20px;
+}
+
+.login-form .form-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.login-form .input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.login-form .input-icon {
+    position: absolute;
+    left: 14px;
+    color: var(--text-muted);
+    pointer-events: none;
+}
+
+.login-form .form-input {
+    width: 100%;
+    padding: 12px 14px 12px 44px;
+    font-size: 14px;
+    color: var(--text-primary);
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+}
+
+.login-form .form-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px var(--primary-bg);
+}
+
+.login-form .form-input::placeholder {
+    color: var(--text-muted);
+}
+
+.password-toggle {
+    position: absolute;
+    right: 14px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.password-toggle:hover {
+    color: var(--text-secondary);
+}
+
+.password-toggle.active {
+    color: var(--primary-color);
+}
+
+.login-form .form-error {
+    color: var(--danger-color);
+    font-size: 13px;
+    margin-bottom: 16px;
+    display: none;
+}
+
+.login-form .btn-block {
+    width: 100%;
+    padding: 12px;
+    font-size: 15px;
+}
+
+.btn-loading {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.spinner {
+    animation: spin 1s linear infinite;
+}
+
+.login-footer {
+    text-align: center;
+    padding: 20px 40px;
+    background-color: var(--bg-secondary);
+    border-top: 1px solid var(--border-color);
+}
+
+.login-footer p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+/* ========================================
+   用户信息区域样式
+======================================== */
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+    position: relative;
+}
+
+.user-info:hover {
+    background-color: var(--bg-secondary);
+}
+
+.user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: var(--primary-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+}
+
+.user-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dropdown-arrow {
+    color: var(--text-muted);
+    transition: transform var(--transition-fast);
+}
+
+.user-info.active .dropdown-arrow {
+    transform: rotate(180deg);
+}
+
+.user-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 8px;
+    background-color: var(--bg-primary);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    min-width: 160px;
+    padding: 8px 0;
+    display: none;
+    z-index: 1000;
+    border: 1px solid var(--border-color);
+}
+
+.user-dropdown.show {
+    display: block;
+    animation: dropdownFadeIn 0.15s ease;
+}
+
+@keyframes dropdownFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+    font-size: 14px;
+    color: var(--text-primary);
+}
+
+.dropdown-item:hover {
+    background-color: var(--bg-secondary);
+}
+
+.dropdown-item svg {
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.dropdown-item.logout {
+    color: var(--danger-color);
+}
+
+.dropdown-item.logout svg {
+    color: var(--danger-color);
+}
+
+.dropdown-divider {
+    height: 1px;
+    background-color: var(--border-color);
+    margin: 8px 0;
+}
+
+/* ========================================
+   修改密码表单样式
+======================================== */
+.change-password-form .form-hint {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+    padding: 12px;
+    background-color: var(--warning-bg);
+    border-radius: var(--radius-md);
+    border-left: 3px solid var(--warning-color);
+}
+
+.change-password-form .form-error {
+    color: var(--danger-color);
+    font-size: 13px;
+    margin-top: 12px;
+    display: none;
+}
+
+/* ========================================
+   按钮尺寸变体
+======================================== */
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 13px;
+}

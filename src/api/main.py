@@ -18,9 +18,11 @@ from loguru import logger
 from sqlalchemy import text
 
 from src.api.v1.analysis import router as analysis_router
+from src.api.v1.auth import router as auth_router
 from src.api.v1.conditions import router as conditions_router
 from src.api.v1.monitor import router as monitor_router
 from src.api.v1.talents import router as talents_router
+from src.api.v1.users import router as users_router
 from src.api.v1.websocket import router as websocket_router
 from src.core.config import get_settings
 from src.core.exceptions import BaseAppException
@@ -90,10 +92,12 @@ def create_app() -> FastAPI:
     )
 
     # 注册路由
+    app.include_router(auth_router, prefix="/api/v1")
     app.include_router(conditions_router, prefix="/api/v1")
     app.include_router(talents_router, prefix="/api/v1")
     app.include_router(analysis_router, prefix="/api/v1")
     app.include_router(monitor_router, prefix="/api/v1")
+    app.include_router(users_router, prefix="/api/v1")
     app.include_router(websocket_router)
 
     # 注册全局异常处理器

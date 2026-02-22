@@ -56,10 +56,22 @@ def _build_filter_prompt(
         conditions_desc.append(f"学历要求: {condition_config['education_level']}")
     if condition_config.get("experience_years"):
         conditions_desc.append(f"工作年限要求: {condition_config['experience_years']} 年及以上")
+    if condition_config.get("experience_years_max"):
+        conditions_desc.append(f"工作年限上限: {condition_config['experience_years_max']} 年")
     if condition_config.get("major"):
         conditions_desc.append(f"专业要求: {', '.join(condition_config['major'])}")
     if condition_config.get("school_tier"):
-        conditions_desc.append(f"院校层次要求: {', '.join(condition_config['school_tier'])}")
+        school_tiers = condition_config["school_tier"]
+        tier_text_map = {
+            "985_211": "985/211 院校",
+            "overseas": "海外知名院校",
+            "ordinary": "普通国内院校",
+        }
+        if isinstance(school_tiers, list):
+            tier_texts = [tier_text_map.get(t, t) for t in school_tiers]
+            conditions_desc.append(f"院校层次要求: {' 或 '.join(tier_texts)}")
+        else:
+            conditions_desc.append(f"院校层次要求: {tier_text_map.get(school_tiers, school_tiers)}")
 
     conditions_text = "\n".join(f"- {c}" for c in conditions_desc)
 
@@ -210,6 +222,8 @@ def _quick_filter(
     Returns:
         FilterResult | None: 如果可以快速判断则返回结果，否则返回 None
     """
+    from src.utils.school_tier_data import check_school_tier_match
+
     unmatched: list[str] = []
     matched: list[str] = []
 
@@ -247,6 +261,54 @@ def _quick_filter(
             matched.append(f"工作年限符合: {candidate_years}年")
         else:
             unmatched.append(f"工作年限不足: 要求{required_years}年，实际{candidate_years}年")
+
+    max_years = condition_config.get("experience_years_max")
+    if max_years is not None and max_years > 0:
+        candidate_years = candidate_info.get("work_years", 0) or 0
+        if candidate_years <= max_years:
+            matched.append(f"工作年限符合上限: {candidate_years}年")
+        else:
+            unmatched.append(f"工作年限超限: 要求最多{max_years}年，实际{candidate_years}年")
+
+    required_skills = condition_config.get("skills", [])
+    if required_skills:
+        candidate_skills = set(s.lower() for s in candidate_info.get("skills", []))
+        matched_skills = []
+        missing_skills = []
+        for skill in required_skills:
+            if skill.lower() in candidate_skills:
+                matched_skills.append(skill)
+            else:
+                missing_skills.append(skill)
+
+        if matched_skills:
+            matched.append(f"技能匹配: {', '.join(matched_skills)}")
+        if missing_skills:
+            unmatched.append(f"缺少技能: {', '.join(missing_skills)}")
+
+    required_majors = condition_config.get("major", [])
+    if required_majors:
+        candidate_major = candidate_info.get("major", "").lower()
+        major_matched = any(m.lower() in candidate_major for m in required_majors)
+        if major_matched:
+            matched.append(f"专业匹配: {candidate_info.get('major')}")
+        else:
+            unmatched.append(
+                f"专业不匹配: 要求{required_majors}，实际{candidate_info.get('major')}"
+            )
+
+    school_tiers = condition_config.get("school_tier")
+    if school_tiers:
+        candidate_school = candidate_info.get("school", "")
+        if isinstance(school_tiers, list):
+            if check_school_tier_match(candidate_school, school_tiers):
+                matched.append(f"学校层次符合: {candidate_school}")
+            else:
+                unmatched.append(f"学校层次不符合: {candidate_school}")
+        elif check_school_tier_match(candidate_school, [school_tiers]):
+            matched.append(f"学校层次符合: {candidate_school}")
+        else:
+            unmatched.append(f"学校层次不符合: {candidate_school}")
 
     if unmatched:
         return FilterResult(

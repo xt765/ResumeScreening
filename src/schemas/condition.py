@@ -206,10 +206,10 @@ class ConditionConfig(BaseModel):
         description="专业要求列表",
         examples=[["计算机科学与技术", "软件工程"]],
     )
-    school_tier: list[SchoolTier] | None = Field(
+    school_tier: list[SchoolTier] | SchoolTier | None = Field(
         default=None,
-        description="学校层次要求（支持多选）",
-        examples=[["985_211"], ["985_211", "overseas"]],
+        description="学校层次要求（支持多选，向后兼容单选）",
+        examples=[["985_211"], ["985_211", "overseas"], "985_211"],
     )
 
     # 扩展筛选字段

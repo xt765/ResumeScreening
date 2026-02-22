@@ -100,10 +100,9 @@ const TalentsPage = {
             high_school: '高中及以下',
         };
         const schoolTierLabels = {
-            top: '顶尖院校（985/C9）',
-            key: '重点院校（211）',
-            ordinary: '普通院校',
-            overseas: '海外院校',
+            '985_211': '985/211 院校',
+            'overseas': '海外知名院校',
+            'ordinary': '普通国内院校',
         };
 
         const details = [];
@@ -114,7 +113,10 @@ const TalentsPage = {
             details.push(`<span class="condition-tag">工作年限: ${config.experience_years}+ 年</span>`);
         }
         if (config.school_tier) {
-            details.push(`<span class="condition-tag">院校层次: ${schoolTierLabels[config.school_tier] || config.school_tier}</span>`);
+            const tiers = Array.isArray(config.school_tier) 
+                ? config.school_tier.map(t => schoolTierLabels[t] || t).join(' 或 ')
+                : schoolTierLabels[config.school_tier] || config.school_tier;
+            details.push(`<span class="condition-tag">院校层次: ${tiers}</span>`);
         }
         if (config.skills && config.skills.length > 0) {
             details.push(`<span class="condition-tag">技能: ${config.skills.join(', ')}</span>`);
@@ -267,10 +269,9 @@ const TalentsPage = {
             high_school: '高中及以下',
         };
         const schoolTierLabels = {
-            top: '顶尖院校（985/C9）',
-            key: '重点院校（211）',
-            ordinary: '普通院校',
-            overseas: '海外院校',
+            '985_211': '985/211 院校',
+            'overseas': '海外知名院校',
+            'ordinary': '普通国内院校',
         };
 
         const details = [];
@@ -281,7 +282,10 @@ const TalentsPage = {
             details.push(`<span class="condition-tag">工作年限: ${config.experience_years}+ 年</span>`);
         }
         if (config.school_tier) {
-            details.push(`<span class="condition-tag">院校层次: ${schoolTierLabels[config.school_tier] || config.school_tier}</span>`);
+            const tiers = Array.isArray(config.school_tier) 
+                ? config.school_tier.map(t => schoolTierLabels[t] || t).join(' 或 ')
+                : schoolTierLabels[config.school_tier] || config.school_tier;
+            details.push(`<span class="condition-tag">院校层次: ${tiers}</span>`);
         }
         if (config.skills && config.skills.length > 0) {
             details.push(`<span class="condition-tag">技能: ${config.skills.join(', ')}</span>`);

@@ -6,6 +6,51 @@
 const API_BASE_URL = 'http://localhost:8000/api/v1';
 
 /**
+ * 获取存储的 Token
+ */
+function getStoredToken() {
+    return localStorage.getItem('token');
+}
+
+/**
+ * 设置存储的 Token
+ */
+function setStoredToken(token) {
+    if (token) {
+        localStorage.setItem('token', token);
+    } else {
+        localStorage.removeItem('token');
+    }
+}
+
+/**
+ * 获取存储的用户信息
+ */
+function getStoredUser() {
+    const user = localStorage.getItem('user');
+    return user ? JSON.parse(user) : null;
+}
+
+/**
+ * 设置存储的用户信息
+ */
+function setStoredUser(user) {
+    if (user) {
+        localStorage.setItem('user', JSON.stringify(user));
+    } else {
+        localStorage.removeItem('user');
+    }
+}
+
+/**
+ * 清除认证信息
+ */
+function clearAuth() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+}
+
+/**
  * API 请求封装类
  */
 class ApiClient {
@@ -21,6 +66,8 @@ class ApiClient {
      */
     async request(endpoint, options = {}) {
         const url = `${this.baseUrl}${endpoint}`;
+        const token = getStoredToken();
+        
         const config = {
             headers: {
                 'Content-Type': 'application/json',
@@ -28,6 +75,11 @@ class ApiClient {
             },
             ...options,
         };
+
+        // 添加 Authorization 头
+        if (token) {
+            config.headers['Authorization'] = `Bearer ${token}`;
+        }
 
         // 如果有 body 且是对象，转换为 JSON
         if (config.body && typeof config.body === 'object' && !(config.body instanceof FormData)) {
@@ -44,7 +96,12 @@ class ApiClient {
             const data = await response.json();
 
             if (!response.ok) {
-                throw new ApiError(data.message || '请求失败', response.status, data);
+                // 401 错误清除认证信息
+                if (response.status === 401) {
+                    clearAuth();
+                    window.dispatchEvent(new CustomEvent('auth:logout'));
+                }
+                throw new ApiError(data.detail || data.message || '请求失败', response.status, data);
             }
 
             return data;
@@ -382,6 +439,123 @@ const healthApi = {
     },
 };
 
+/**
+ * 认证 API
+ */
+const authApi = {
+    /**
+     * 用户登录
+     * @param {string} username - 用户名
+     * @param {string} password - 密码
+     */
+    async login(username, password) {
+        const response = await api.post('/auth/login', { username, password });
+        if (response.success && response.data) {
+            setStoredToken(response.data.access_token);
+            setStoredUser(response.data.user);
+            window.dispatchEvent(new CustomEvent('auth:login', { detail: response.data.user }));
+        }
+        return response;
+    },
+
+    /**
+     * 用户登出
+     */
+    async logout() {
+        try {
+            await api.post('/auth/logout');
+        } catch (e) {
+            // 忽略登出错误
+        }
+        clearAuth();
+        window.dispatchEvent(new CustomEvent('auth:logout'));
+    },
+
+    /**
+     * 获取当前用户信息
+     */
+    async getMe() {
+        const response = await api.get('/auth/me');
+        if (response.success && response.data) {
+            setStoredUser(response.data);
+        }
+        return response;
+    },
+
+    /**
+     * 修改密码
+     * @param {string} oldPassword - 旧密码
+     * @param {string} newPassword - 新密码
+     */
+    changePassword(oldPassword, newPassword) {
+        return api.put('/auth/password', {
+            old_password: oldPassword,
+            new_password: newPassword,
+        });
+    },
+
+    /**
+     * 检查是否已登录
+     */
+    isLoggedIn() {
+        return !!getStoredToken();
+    },
+
+    /**
+     * 获取当前用户
+     */
+    getCurrentUser() {
+        return getStoredUser();
+    },
+};
+
+/**
+ * 用户管理 API（管理员）
+ */
+const usersApi = {
+    /**
+     * 创建用户
+     * @param {Object} data - 用户数据
+     */
+    create(data) {
+        return api.post('/users', data);
+    },
+
+    /**
+     * 获取用户列表
+     * @param {Object} params - 查询参数
+     */
+    getList(params = {}) {
+        return api.get('/users', params);
+    },
+
+    /**
+     * 更新用户
+     * @param {string} id - 用户 ID
+     * @param {Object} data - 更新数据
+     */
+    update(id, data) {
+        return api.put(`/users/${id}`, data);
+    },
+
+    /**
+     * 禁用用户
+     * @param {string} id - 用户 ID
+     */
+    delete(id) {
+        return api.delete(`/users/${id}`);
+    },
+
+    /**
+     * 重置用户密码
+     * @param {string} id - 用户 ID
+     * @param {string} newPassword - 新密码
+     */
+    resetPassword(id, newPassword) {
+        return api.post(`/users/${id}/reset-password`, { new_password: newPassword });
+    },
+};
+
 // 导出 API 模块
 window.api = api;
 window.ApiError = ApiError;
@@ -389,3 +563,10 @@ window.analysisApi = analysisApi;
 window.conditionsApi = conditionsApi;
 window.talentsApi = talentsApi;
 window.healthApi = healthApi;
+window.authApi = authApi;
+window.usersApi = usersApi;
+window.getStoredToken = getStoredToken;
+window.getStoredUser = getStoredUser;
+window.setStoredToken = setStoredToken;
+window.setStoredUser = setStoredUser;
+window.clearAuth = clearAuth;

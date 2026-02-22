@@ -69,7 +69,7 @@ class NLPParserService:
 2. 条件描述（description）：对筛选条件的简要说明
 3. 学历要求（education_level）：可选值为 doctor(博士)/master(硕士)/bachelor(本科)/college(大专)/high_school(高中及以下)
 4. 工作年限（experience_years）：最低工作年限（数字）
-5. 学校层次（school_tier）：可选值为 top(985/C9)/key(211)/ordinary(普通)/overseas(海外)
+5. 学校层次（school_tier）：可选值为 985_211(985/211院校)/overseas(海外知名院校)/ordinary(普通国内院校)，支持多选，返回数组
 6. 技能要求（skills）：技能名称列表
 7. 专业要求（major）：专业名称列表
 
@@ -79,7 +79,7 @@ class NLPParserService:
     "description": "条件描述",
     "education_level": "bachelor",
     "experience_years": 3,
-    "school_tier": "top",
+    "school_tier": ["985_211"],
     "skills": ["Python", "Java"],
     "major": ["计算机科学与技术"]
 }
@@ -87,7 +87,8 @@ class NLPParserService:
 注意：
 - 只返回 JSON，不要添加任何其他文字说明
 - 如果某项信息用户未提及，则不要包含该字段
-- 学历、学校层次等字段使用英文枚举值"""
+- 学历、学校层次等字段使用英文枚举值
+- school_tier 是数组类型，支持多选，例如 ["985_211", "overseas"] 表示接受 985/211 院校或海外知名院校"""
 
         human_prompt = f"""请解析以下筛选条件描述：
 
@@ -126,31 +127,42 @@ class NLPParserService:
         }
         return mapping.get(value.lower() if isinstance(value, str) else value)
 
-    def _map_school_tier(self, value: str | None) -> SchoolTier | None:
+    def _map_school_tier(self, value: str | list | None) -> list[SchoolTier] | None:
         """映射学校层次值。
 
         Args:
-            value: 原始学校层次值。
+            value: 原始学校层次值（字符串或列表）。
 
         Returns:
-            SchoolTier | None: 学校层次枚举值。
+            list[SchoolTier] | None: 学校层次枚举列表。
         """
         if not value:
             return None
 
         mapping = {
-            "top": SchoolTier.TOP,
-            "985": SchoolTier.TOP,
-            "c9": SchoolTier.TOP,
-            "key": SchoolTier.KEY,
-            "211": SchoolTier.KEY,
+            "top": SchoolTier.SCHOOLS_985_211,
+            "985": SchoolTier.SCHOOLS_985_211,
+            "985_211": SchoolTier.SCHOOLS_985_211,
+            "c9": SchoolTier.SCHOOLS_985_211,
+            "key": SchoolTier.SCHOOLS_985_211,
+            "211": SchoolTier.SCHOOLS_985_211,
             "ordinary": SchoolTier.ORDINARY,
             "普通": SchoolTier.ORDINARY,
             "overseas": SchoolTier.OVERSEAS,
             "海外": SchoolTier.OVERSEAS,
             "国外": SchoolTier.OVERSEAS,
         }
-        return mapping.get(value.lower() if isinstance(value, str) else value)
+
+        if isinstance(value, list):
+            result = []
+            for v in value:
+                tier = mapping.get(v.lower() if isinstance(v, str) else v)
+                if tier and tier not in result:
+                    result.append(tier)
+            return result if result else None
+
+        tier = mapping.get(value.lower() if isinstance(value, str) else value)
+        return [tier] if tier else None
 
     async def parse(self, text: str) -> NLParseResponse:
         """解析自然语言描述。

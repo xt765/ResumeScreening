@@ -344,9 +344,7 @@ async def parse_extract_node(state: ResumeState) -> dict[str, Any]:
 
         # 3. 提取候选人信息（在线程池中执行）
         if parse_result.text:
-            candidate_info = await asyncio.to_thread(
-                _extract_candidate_info, parse_result.text
-            )
+            candidate_info = await asyncio.to_thread(_extract_candidate_info, parse_result.text)
         else:
             logger.warning("简历文本为空，跳过 LLM 提取")
             candidate_info = CandidateInfo().to_dict()

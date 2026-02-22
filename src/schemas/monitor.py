@@ -78,9 +78,7 @@ class ServiceStatus(BaseModel):
     """
 
     name: str = Field(..., description="服务名称")
-    status: Literal["healthy", "unhealthy", "degraded"] = Field(
-        ..., description="服务状态"
-    )
+    status: Literal["healthy", "unhealthy", "degraded"] = Field(..., description="服务状态")
     latency_ms: float | None = Field(default=None, description="响应延迟（毫秒）")
     message: str | None = Field(default=None, description="状态消息")
     details: dict[str, Any] | None = Field(default=None, description="详细信息")
@@ -123,9 +121,7 @@ class SystemHealth(BaseModel):
         last_check: 最后检查时间。
     """
 
-    status: Literal["healthy", "unhealthy", "degraded"] = Field(
-        ..., description="整体状态"
-    )
+    status: Literal["healthy", "unhealthy", "degraded"] = Field(..., description="整体状态")
     services: list[ServiceStatus] = Field(..., description="各服务状态列表")
     resources: ResourceUsage = Field(..., description="资源使用情况")
     uptime_seconds: int = Field(..., ge=0, description="系统运行时间（秒）")
