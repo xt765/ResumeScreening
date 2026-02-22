@@ -346,26 +346,34 @@ async def run_workflow_batch(
     file_paths: list[str],
     condition_id: str | None = None,
     condition_config: dict[str, Any] | None = None,
+    max_concurrency: int = 3,
 ) -> list[dict[str, Any]]:
     """批量运行简历处理工作流。
 
-    并发处理多个简历文件。
+    并发处理多个简历文件，限制最大并发数。
 
     Args:
         file_paths: 简历文件路径列表
         condition_id: 筛选条件 ID
         condition_config: 筛选条件配置
+        max_concurrency: 最大并发数，默认 3
 
     Returns:
         list[dict[str, Any]]: 工作流执行结果列表
     """
     import asyncio
 
-    logger.info(f"开始批量处理简历: count={len(file_paths)}")
+    logger.info(f"开始批量处理简历: count={len(file_paths)}, max_concurrency={max_concurrency}")
 
-    tasks = [
-        run_resume_workflow(file_path, condition_id, condition_config) for file_path in file_paths
-    ]
+    # 使用信号量限制并发数
+    semaphore = asyncio.Semaphore(max_concurrency)
+
+    async def run_with_semaphore(file_path: str) -> dict[str, Any]:
+        """带并发限制的工作流执行。"""
+        async with semaphore:
+            return await run_resume_workflow(file_path, condition_id, condition_config)
+
+    tasks = [run_with_semaphore(file_path) for file_path in file_paths]
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
 

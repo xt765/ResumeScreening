@@ -92,14 +92,14 @@ def console_format(record: "Record") -> str:
         "TRACE": "<dim>",
         "DEBUG": "<cyan>",
         "INFO": "<green>",
-        "SUCCESS": "<bold><green>",
+        "SUCCESS": "<green><bold>",
         "WARNING": "<yellow>",
         "ERROR": "<red>",
-        "CRITICAL": "<bold><red>",
+        "CRITICAL": "<red><bold>",
     }
 
     color = level_colors.get(record["level"].name, "")
-    end_color = "</>" if color else ""
+    end_color = "</>" * color.count("<") if color else ""
 
     # 构建格式化字符串
     time_str = "<cyan>{time:YYYY-MM-DD HH:mm:ss}</cyan>"

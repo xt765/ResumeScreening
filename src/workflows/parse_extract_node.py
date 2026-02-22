@@ -4,6 +4,7 @@
 支持 PDF 和 DOCX 格式的简历解析。
 """
 
+import asyncio
 from pathlib import Path
 import time
 from typing import Any
@@ -314,6 +315,9 @@ async def parse_extract_node(state: ResumeState) -> dict[str, Any]:
     2. 解析文档提取文本和图片
     3. 调用 LLM 提取候选人信息
 
+    使用 asyncio.to_thread() 将 CPU 密集型操作放到线程池中执行，
+    避免阻塞事件循环。
+
     Args:
         state: 当前工作流状态
 
@@ -332,15 +336,17 @@ async def parse_extract_node(state: ResumeState) -> dict[str, Any]:
         file_type = _detect_file_type(state.file_path)
         logger.info(f"检测到文件类型: {file_type}")
 
-        # 2. 解析文档
+        # 2. 解析文档（在线程池中执行）
         if file_type == "pdf":
-            parse_result = _parse_pdf(state.file_path)
+            parse_result = await asyncio.to_thread(_parse_pdf, state.file_path)
         else:
-            parse_result = _parse_docx(state.file_path)
+            parse_result = await asyncio.to_thread(_parse_docx, state.file_path)
 
-        # 3. 提取候选人信息
+        # 3. 提取候选人信息（在线程池中执行）
         if parse_result.text:
-            candidate_info = _extract_candidate_info(parse_result.text)
+            candidate_info = await asyncio.to_thread(
+                _extract_candidate_info, parse_result.text
+            )
         else:
             logger.warning("简历文本为空，跳过 LLM 提取")
             candidate_info = CandidateInfo().to_dict()
