@@ -149,12 +149,16 @@ async def _save_to_mysql(
         # 解析毕业日期
         graduation_date = None
         if candidate_info.get("graduation_date"):
-            try:
-                graduation_date = datetime.strptime(
-                    candidate_info["graduation_date"], "%Y-%m-%d"
-                ).date()
-            except ValueError:
-                logger.warning(f"毕业日期格式错误: {candidate_info['graduation_date']}")
+            date_str = candidate_info["graduation_date"]
+            date_formats = ["%Y-%m-%d", "%Y-%m", "%Y/%m/%d", "%Y/%m", "%Y年%m月%d日", "%Y年%m月"]
+            for fmt in date_formats:
+                try:
+                    graduation_date = datetime.strptime(date_str, fmt).date()
+                    break
+                except ValueError:
+                    continue
+            if graduation_date is None:
+                logger.warning(f"毕业日期格式无法解析: {date_str}")
 
         # 创建人才记录
         talent = TalentInfo(
