@@ -29,12 +29,10 @@ class RoleEnum(StrEnum):
     Attributes:
         ADMIN: 管理员，可创建/管理用户、查看所有数据
         HR: HR 用户，可管理筛选条件、上传简历、查看人才
-        VIEWER: 访客，仅可查看数据，不可修改
     """
 
     ADMIN = "admin"
     HR = "hr"
-    VIEWER = "viewer"
 
 
 class User(Base, TimestampMixin):

@@ -345,6 +345,67 @@ async def delete_user(
     )
 
 
+@router.delete(
+    "/{user_id}/permanent",
+    response_model=APIResponse[None],
+    summary="永久删除用户",
+    description="管理员永久删除用户账号",
+)
+async def delete_user_permanent(
+    user_id: str,
+    admin: User = Depends(require_role(RoleEnum.ADMIN)),
+    session: AsyncSession = Depends(get_session),
+) -> APIResponse[None]:
+    """永久删除用户接口。
+
+    管理员永久删除用户账号（从数据库中删除）。
+
+    Args:
+        user_id: 用户 ID
+        admin: 当前管理员用户
+        session: 数据库会话
+
+    Returns:
+        APIResponse[None]: 操作结果
+
+    Raises:
+        HTTPException: 用户不存在、不能删除自己或系统管理员
+    """
+    logger.info(f"永久删除用户: user_id={user_id}")
+
+    if user_id == admin.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="不能删除自己的账号",
+        )
+
+    result = await session.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="用户不存在",
+        )
+
+    if is_system_admin(user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="系统管理员账号不允许删除",
+        )
+
+    await session.delete(user)
+    await session.commit()
+
+    logger.success(f"永久删除用户成功: user_id={user_id}")
+
+    return APIResponse(
+        success=True,
+        message="用户已删除",
+        data=None,
+    )
+
+
 @router.post(
     "/{user_id}/reset-password",
     response_model=APIResponse[None],

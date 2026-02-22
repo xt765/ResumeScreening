@@ -15,10 +15,10 @@ from loguru import logger
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src import models
 from src.core.exceptions import DatabaseException, StorageException, WorkflowException
 from src.core.security import encrypt_data
 from src.models import ScreeningStatusEnum, TalentInfo, WorkflowStatusEnum
-from src import models
 from src.storage.chroma_client import chroma_client
 from src.storage.minio_client import minio_client
 from src.workflows.state import ResumeState
@@ -68,12 +68,14 @@ def _upload_images_to_minio(
     return photo_urls
 
 
-def _store_to_chromadb(
+async def _store_to_chromadb(
     talent_id: str,
     resume_text: str,
     candidate_info: dict[str, Any],
 ) -> bool:
     """存储简历向量到 ChromaDB。
+
+    使用 DashScope Embedding 生成向量，确保与查询时使用的向量维度一致。
 
     Args:
         talent_id: 人才 ID
@@ -91,6 +93,15 @@ def _store_to_chromadb(
         return False
 
     try:
+        from src.utils.embedding import get_embedding_service
+
+        embedding_service = get_embedding_service()
+        embeddings = await embedding_service.embed_texts([resume_text])
+
+        if not embeddings:
+            logger.warning("向量生成失败，跳过存储")
+            return False
+
         is_qualified = candidate_info.get("is_qualified", False)
         metadata = {
             "name": candidate_info.get("name", ""),
@@ -104,11 +115,11 @@ def _store_to_chromadb(
             "screening_status": "qualified" if is_qualified else "unqualified",
         }
 
-        # 添加到 ChromaDB
         chroma_client.add_documents(
             ids=[talent_id],
             documents=[resume_text],
             metadatas=[metadata],
+            embeddings=embeddings,
         )
 
         logger.info(f"向量存储成功: talent_id={talent_id}")
@@ -264,7 +275,7 @@ async def store_node(state: ResumeState) -> dict[str, Any]:
 
             # 4. 存储向量到 ChromaDB
             if state.text_content:
-                _store_to_chromadb(
+                await _store_to_chromadb(
                     talent_id,
                     state.text_content,
                     state.candidate_info,

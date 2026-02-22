@@ -547,6 +547,14 @@ const usersApi = {
     },
 
     /**
+     * 永久删除用户
+     * @param {string} id - 用户 ID
+     */
+    permanentDelete(id) {
+        return api.delete(`/users/${id}/permanent`);
+    },
+
+    /**
      * 重置用户密码
      * @param {string} id - 用户 ID
      * @param {string} newPassword - 新密码

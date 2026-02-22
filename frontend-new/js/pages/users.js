@@ -59,7 +59,6 @@ const UsersPage = {
                             <option value="">全部角色</option>
                             <option value="admin" ${this.filters.role === 'admin' ? 'selected' : ''}>管理员</option>
                             <option value="hr" ${this.filters.role === 'hr' ? 'selected' : ''}>HR</option>
-                            <option value="viewer" ${this.filters.role === 'viewer' ? 'selected' : ''}>访客</option>
                         </select>
                         <select class="form-select" id="statusFilter">
                             <option value="">全部状态</option>
@@ -174,6 +173,7 @@ const UsersPage = {
                             </svg>
                         </button>
                         ${this.renderStatusButton(user, isSystemAdmin)}
+                        ${this.renderDeleteButton(user, isSystemAdmin)}
                     </div>
                 </td>
             </tr>
@@ -217,13 +217,37 @@ const UsersPage = {
     },
 
     /**
+     * 渲染删除按钮
+     */
+    renderDeleteButton(user, isSystemAdmin) {
+        if (isSystemAdmin) {
+            return `
+                <button class="action-btn disabled" disabled title="系统管理员不能被删除">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                    </svg>
+                </button>
+            `;
+        }
+
+        return `
+            <button class="action-btn danger" onclick="UsersPage.deleteUser('${user.id}')" title="删除用户">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+            </button>
+        `;
+    },
+
+    /**
      * 获取角色信息
      */
     getRoleInfo(role) {
         const roles = {
             admin: { label: '管理员', class: 'role-admin' },
-            hr: { label: 'HR', class: 'role-hr' },
-            viewer: { label: '访客', class: 'role-viewer' }
+            hr: { label: 'HR', class: 'role-hr' }
         };
         return roles[role] || { label: role, class: 'role-default' };
     },
@@ -374,7 +398,6 @@ const UsersPage = {
                         <label class="form-label required">角色</label>
                         <select id="newRole" class="form-input" required>
                             <option value="hr">HR</option>
-                            <option value="viewer">访客</option>
                             <option value="admin">管理员</option>
                         </select>
                     </div>
@@ -495,7 +518,6 @@ const UsersPage = {
                         <label class="form-label required">角色</label>
                         <select id="editRole" class="form-input" ${isSystemAdmin ? 'disabled' : ''}>
                             <option value="hr" ${user.role === 'hr' ? 'selected' : ''}>HR</option>
-                            <option value="viewer" ${user.role === 'viewer' ? 'selected' : ''}>访客</option>
                             <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>管理员</option>
                         </select>
                     </div>
@@ -732,6 +754,33 @@ const UsersPage = {
         } catch (error) {
             UI.toast(error.message || '操作失败', 'error');
         }
+    },
+
+    /**
+     * 删除用户
+     */
+    deleteUser(userId) {
+        const user = this.users.find(u => u.id === userId);
+        if (!user) return;
+
+        if (user.username === this.SYSTEM_ADMIN_USERNAME) {
+            UI.toast('系统管理员不能被删除', 'error');
+            return;
+        }
+
+        UI.confirm('确定要永久删除该用户吗？此操作不可恢复！', async () => {
+            try {
+                const response = await usersApi.permanentDelete(userId);
+                if (response.success) {
+                    UI.toast('用户已删除', 'success');
+                    this.loadUsersAndRender();
+                } else {
+                    UI.toast(response.message || '操作失败', 'error');
+                }
+            } catch (error) {
+                UI.toast(error.message || '操作失败', 'error');
+            }
+        }, '删除');
     },
 
     /**

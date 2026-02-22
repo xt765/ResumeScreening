@@ -51,6 +51,10 @@ const TalentsPage = {
     },
 
     updateContent() {
+        if (window.AppState?.currentPage !== 'talents') {
+            console.log('页面已切换，跳过 TalentsPage 更新');
+            return;
+        }
         const container = document.getElementById('pageContainer');
         if (container) {
             container.innerHTML = this.renderContent();
