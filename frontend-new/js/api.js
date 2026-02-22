@@ -63,7 +63,16 @@ class ApiClient {
         const searchParams = new URLSearchParams();
         Object.entries(params).forEach(([key, value]) => {
             if (value !== null && value !== undefined && value !== '') {
-                searchParams.append(key, value);
+                // 处理数组参数：每个元素作为独立的参数
+                if (Array.isArray(value)) {
+                    value.forEach(item => {
+                        if (item !== null && item !== undefined && item !== '') {
+                            searchParams.append(key, item);
+                        }
+                    });
+                } else {
+                    searchParams.append(key, value);
+                }
             }
         });
         const query = searchParams.toString();
