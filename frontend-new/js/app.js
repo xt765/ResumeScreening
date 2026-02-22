@@ -85,7 +85,7 @@ const PageConfig = {
         subtitle: '查看系统整体运行状态和关键指标',
         icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
         render: () => DashboardPage.render(),
-        requireAuth: false,
+        requireAuth: true,
         scripts: ['js/pages/dashboard.js'],
     },
     conditions: {
@@ -93,7 +93,7 @@ const PageConfig = {
         subtitle: '创建和管理简历筛选条件',
         icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>',
         render: () => ConditionsPage.render(),
-        requireAuth: false,
+        requireAuth: true,
         scripts: ['js/pages/conditions.js'],
     },
     upload: {
@@ -101,7 +101,7 @@ const PageConfig = {
         subtitle: '上传简历文件进行智能筛选',
         icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
         render: () => UploadPage.render(),
-        requireAuth: false,
+        requireAuth: true,
         scripts: ['js/pages/upload.js'],
     },
     talents: {
@@ -109,7 +109,7 @@ const PageConfig = {
         subtitle: '搜索和查看通过筛选的人才信息',
         icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
         render: () => TalentsPage.render(),
-        requireAuth: false,
+        requireAuth: true,
         scripts: ['js/pages/talents.js'],
     },
     analysis: {
@@ -117,7 +117,7 @@ const PageConfig = {
         subtitle: 'RAG 智能查询和统计分析',
         icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
         render: () => AnalysisPage.render(),
-        requireAuth: false,
+        requireAuth: true,
         scripts: ['js/echarts.min.js', 'js/pages/analysis.js'],
     },
     monitor: {
@@ -125,7 +125,7 @@ const PageConfig = {
         subtitle: '实时监控系统运行状态和日志信息',
         icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>',
         render: () => MonitorPage.render(),
-        requireAuth: false,
+        requireAuth: true,
         scripts: ['js/pages/monitor.js'],
     },
     users: {
@@ -163,6 +163,23 @@ const Router = {
         }
 
         const pageConfig = PageConfig[page];
+        
+        // 路由守卫：检查认证
+        if (pageConfig?.requireAuth && !authApi.isLoggedIn()) {
+            UI.toast('请先登录', 'warning');
+            this.navigateTo('login');
+            return;
+        }
+        
+        // 角色权限检查
+        if (pageConfig?.requireRole) {
+            const user = getStoredUser();
+            if (!user || user.role !== pageConfig.requireRole) {
+                UI.toast('权限不足', 'error');
+                this.navigateTo('dashboard');
+                return;
+            }
+        }
         
         if (pageConfig?.hideLayout) {
             document.querySelector('.app-container').style.display = 'none';

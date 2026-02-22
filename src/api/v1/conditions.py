@@ -15,7 +15,7 @@ from loguru import logger
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.deps import get_session
+from src.api.deps import CurrentUser, get_session
 from src.models.condition import ScreeningCondition, StatusEnum
 from src.schemas.common import APIResponse, PaginatedResponse
 from src.schemas.condition import (
@@ -59,12 +59,14 @@ def _map_to_response(condition: ScreeningCondition) -> ConditionResponse:
     description="创建一个新的筛选条件配置",
 )
 async def create_condition(
+    current_user: CurrentUser,
     data: ConditionCreate,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> APIResponse[ConditionResponse]:
     """新增筛选条件。
 
     Args:
+        current_user: 当前登录用户
         data: 创建请求数据
         session: 数据库会话
 
@@ -74,7 +76,7 @@ async def create_condition(
     Raises:
         HTTPException: 数据库操作失败时抛出
     """
-    logger.info(f"创建筛选条件: name={data.name}")
+    logger.info(f"创建筛选条件: name={data.name}, user={current_user.username}")
 
     try:
         # 构建数据库模型
@@ -112,6 +114,7 @@ async def create_condition(
     description="更新指定 ID 的筛选条件配置",
 )
 async def update_condition(
+    current_user: CurrentUser,
     condition_id: str,
     data: ConditionUpdate,
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -119,6 +122,7 @@ async def update_condition(
     """修改筛选条件。
 
     Args:
+        current_user: 当前登录用户
         condition_id: 条件 ID
         data: 更新请求数据
         session: 数据库会话
@@ -129,7 +133,7 @@ async def update_condition(
     Raises:
         HTTPException: 条件不存在或操作失败时抛出
     """
-    logger.info(f"更新筛选条件: id={condition_id}")
+    logger.info(f"更新筛选条件: id={condition_id}, user={current_user.username}")
 
     try:
         # 查询条件
@@ -191,12 +195,14 @@ async def update_condition(
     description="将指定 ID 的筛选条件标记为已删除状态",
 )
 async def delete_condition(
+    current_user: CurrentUser,
     condition_id: str,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> APIResponse[None]:
     """逻辑删除筛选条件。
 
     Args:
+        current_user: 当前登录用户
         condition_id: 条件 ID
         session: 数据库会话
 
@@ -206,7 +212,7 @@ async def delete_condition(
     Raises:
         HTTPException: 条件不存在或操作失败时抛出
     """
-    logger.info(f"删除筛选条件: id={condition_id}")
+    logger.info(f"删除筛选条件: id={condition_id}, user={current_user.username}")
 
     try:
         # 查询条件

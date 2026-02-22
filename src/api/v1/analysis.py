@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.deps import get_session
+from src.api.deps import CurrentUser, get_session
 from src.core.exceptions import LLMException
 from src.models.talent import TalentInfo
 from src.schemas.common import APIResponse
@@ -308,12 +308,16 @@ def _get_education_label(level: str) -> str:
     summary="RAG 智能查询",
     description="基于向量检索和 LLM 生成的人才简历智能问答",
 )
-async def rag_query(request: QueryRequest) -> APIResponse[RAGQueryResponse]:
+async def rag_query(
+    current_user: CurrentUser,
+    request: QueryRequest,
+) -> APIResponse[RAGQueryResponse]:
     """执行 RAG 智能查询。
 
     结合向量检索和 LLM 生成，返回分析结论和来源。
 
     Args:
+        current_user: 当前登录用户
         request: 查询请求参数
 
     Returns:
@@ -322,7 +326,9 @@ async def rag_query(request: QueryRequest) -> APIResponse[RAGQueryResponse]:
     Raises:
         HTTPException: 查询失败时抛出
     """
-    logger.info(f"执行 RAG 查询: query={request.query[:50]}..., top_k={request.top_k}")
+    logger.info(
+        f"执行 RAG 查询: query={request.query[:50]}..., top_k={request.top_k}, user={current_user.username}"
+    )
 
     try:
         filters = request.filters or {}

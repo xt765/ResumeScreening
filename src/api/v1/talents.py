@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.deps import get_session
+from src.api.deps import CurrentUser, get_session
 from src.core.security import decrypt_data
 from src.models.talent import ScreeningStatusEnum, TalentInfo, WorkflowStatusEnum
 from src.schemas.common import APIResponse, PaginatedResponse
@@ -225,12 +225,14 @@ def _build_condition_filters(config: dict[str, Any]) -> list:
     description="上传简历文件，执行 LangGraph 工作流进行智能筛选",
 )
 async def upload_and_screen(
+    current_user: CurrentUser,
     file: Annotated[UploadFile, File(description="简历文件（PDF/DOCX）")],
     condition_id: Annotated[str | None, Query(description="筛选条件ID")] = None,
 ) -> APIResponse[dict[str, Any]]:
     """上传简历并执行智能筛选。
 
     Args:
+        current_user: 当前登录用户
         file: 上传的简历文件
         condition_id: 筛选条件 ID
 
@@ -240,7 +242,9 @@ async def upload_and_screen(
     Raises:
         HTTPException: 文件验证失败或工作流执行失败
     """
-    logger.info(f"收到简历上传请求: filename={file.filename}, condition_id={condition_id}")
+    logger.info(
+        f"收到简历上传请求: filename={file.filename}, condition_id={condition_id}, user={current_user.username}"
+    )
 
     # 验证文件类型
     if not file.filename:
@@ -351,6 +355,7 @@ async def upload_and_screen(
     description="批量上传多个简历文件，后台处理并返回任务 ID",
 )
 async def batch_upload(
+    current_user: CurrentUser,
     files: Annotated[list[UploadFile], File(description="简历文件列表")],
     condition_id: Annotated[str | None, Query(description="筛选条件ID（向后兼容）")] = None,
     filter_config: Annotated[str | None, Query(description="筛选配置JSON")] = None,
@@ -358,6 +363,7 @@ async def batch_upload(
     """批量上传简历。
 
     Args:
+        current_user: 当前登录用户
         files: 上传的简历文件列表
         condition_id: 筛选条件 ID（向后兼容）
         filter_config: 筛选配置 JSON（新格式）
@@ -1095,12 +1101,14 @@ async def batch_vectorize(
     description="将指定人才标记为已删除（逻辑删除）",
 )
 async def delete_talent(
+    current_user: CurrentUser,
     talent_id: str,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> APIResponse[dict[str, Any]]:
     """逻辑删除人才。
 
     Args:
+        current_user: 当前登录用户
         talent_id: 人才 ID
         session: 数据库会话
 
@@ -1110,7 +1118,7 @@ async def delete_talent(
     Raises:
         HTTPException: 人才不存在或删除失败
     """
-    logger.info(f"逻辑删除人才: id={talent_id}")
+    logger.info(f"逻辑删除人才: id={talent_id}, user={current_user.username}")
 
     try:
         # 查询人才
@@ -1247,6 +1255,7 @@ async def restore_talent(
     description="更新指定人才的信息",
 )
 async def update_talent(
+    current_user: CurrentUser,
     talent_id: str,
     update_data: TalentUpdateRequest,
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -1254,6 +1263,7 @@ async def update_talent(
     """更新人才信息。
 
     Args:
+        current_user: 当前登录用户
         talent_id: 人才 ID
         update_data: 更新数据
         session: 数据库会话
@@ -1264,7 +1274,7 @@ async def update_talent(
     Raises:
         HTTPException: 人才不存在或更新失败
     """
-    logger.info(f"更新人才信息: id={talent_id}")
+    logger.info(f"更新人才信息: id={talent_id}, user={current_user.username}")
 
     try:
         result = await session.execute(select(TalentInfo).where(TalentInfo.id == talent_id))

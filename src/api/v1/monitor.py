@@ -9,11 +9,12 @@
 from datetime import datetime, timezone, timedelta
 import math
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import PlainTextResponse
 from loguru import logger
 from sqlalchemy import text
 
+from src.api.deps import CurrentUser
 from src.schemas.common import APIResponse, PaginatedResponse
 from src.schemas.monitor import (
     LogEntry,
@@ -53,6 +54,7 @@ def parse_local_datetime(dt: datetime | None) -> datetime | None:
 
 @router.get("/logs", response_model=APIResponse[PaginatedResponse[LogEntry]])
 async def get_logs(
+    current_user: CurrentUser,
     start_time: datetime | None = Query(None, description="开始时间"),
     end_time: datetime | None = Query(None, description="结束时间"),
     level: list[str] | None = Query(None, description="日志级别"),
@@ -66,6 +68,7 @@ async def get_logs(
     支持按时间范围、级别、关键词筛选，分页返回结果。
 
     Args:
+        current_user: 当前登录用户
         start_time: 开始时间。
         end_time: 结束时间。
         level: 日志级别列表。
