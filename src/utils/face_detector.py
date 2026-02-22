@@ -88,9 +88,7 @@ class FaceDetector:
         scores = [self.get_face_score(img) for img in images]
         best_idx = max(range(len(scores)), key=lambda i: scores[i])
 
-        logger.info(
-            f"人脸检测得分: {scores}, 最佳索引: {best_idx}, 得分: {scores[best_idx]}"
-        )
+        logger.info(f"人脸检测得分: {scores}, 最佳索引: {best_idx}, 得分: {scores[best_idx]}")
         return best_idx
 
 

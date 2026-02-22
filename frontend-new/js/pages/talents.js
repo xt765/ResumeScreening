@@ -19,14 +19,119 @@ const TalentsPage = {
         major: '',
         school: '',
         screening_status: '',
+        condition_id: '',
     },
+    // 可用的筛选条件列表
+    conditionList: [],
+    // 当前选中的筛选条件详情
+    selectedCondition: null,
 
     /**
      * 渲染页面
      */
     async render() {
+        await this.loadConditions();
         await this.loadTalents();
         return this.renderContent();
+    },
+
+    /**
+     * 加载筛选条件列表
+     */
+    async loadConditions() {
+        try {
+            const response = await conditionsApi.getList({ page_size: 100, is_active: true });
+            if (response.success) {
+                this.conditionList = response.data.items || [];
+            }
+        } catch (error) {
+            console.error('加载筛选条件列表失败:', error);
+        }
+    },
+
+    /**
+     * 当选择筛选条件时更新详情
+     */
+    onConditionChange(conditionId) {
+        if (conditionId) {
+            this.selectedCondition = this.conditionList.find(c => c.id === conditionId);
+        } else {
+            this.selectedCondition = null;
+        }
+        this.renderConditionDetail();
+    },
+
+    /**
+     * 渲染筛选条件详情
+     */
+    renderConditionDetail() {
+        const container = document.getElementById('conditionDetail');
+        if (!container) return;
+
+        if (!this.selectedCondition) {
+            container.innerHTML = '';
+            return;
+        }
+
+        const config = this.selectedCondition.config || {};
+        const educationLabels = {
+            doctor: '博士',
+            master: '硕士',
+            bachelor: '本科',
+            college: '大专',
+            high_school: '高中及以下',
+        };
+        const schoolTierLabels = {
+            top: '顶尖院校（985/C9）',
+            key: '重点院校（211）',
+            ordinary: '普通院校',
+            overseas: '海外院校',
+        };
+
+        const details = [];
+        if (config.education_level) {
+            details.push(`<span class="condition-tag">学历: ${educationLabels[config.education_level] || config.education_level}</span>`);
+        }
+        if (config.experience_years !== undefined && config.experience_years !== null) {
+            details.push(`<span class="condition-tag">工作年限: ${config.experience_years}+ 年</span>`);
+        }
+        if (config.school_tier) {
+            details.push(`<span class="condition-tag">院校层次: ${schoolTierLabels[config.school_tier] || config.school_tier}</span>`);
+        }
+        if (config.skills && config.skills.length > 0) {
+            details.push(`<span class="condition-tag">技能: ${config.skills.join(', ')}</span>`);
+        }
+        if (config.major && config.major.length > 0) {
+            details.push(`<span class="condition-tag">专业: ${config.major.join(', ')}</span>`);
+        }
+
+        container.innerHTML = `
+            <div class="condition-detail-box">
+                <div class="condition-detail-header">
+                    <span class="condition-name">${this.escapeHtml(this.selectedCondition.name)}</span>
+                    <button class="btn btn-ghost btn-sm" onclick="TalentsPage.clearCondition()" title="清除筛选条件">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"/>
+                            <line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="condition-detail-tags">
+                    ${details.join('')}
+                </div>
+            </div>
+        `;
+    },
+
+    /**
+     * 清除筛选条件
+     */
+    clearCondition() {
+        this.filters.condition_id = '';
+        this.selectedCondition = null;
+        const select = document.getElementById('filterCondition');
+        if (select) select.value = '';
+        this.renderConditionDetail();
     },
 
     /**
@@ -44,6 +149,7 @@ const TalentsPage = {
             if (this.filters.major) params.major = this.filters.major;
             if (this.filters.school) params.school = this.filters.school;
             if (this.filters.screening_status) params.screening_status = this.filters.screening_status;
+            if (this.filters.condition_id) params.condition_id = this.filters.condition_id;
 
             const response = await talentsApi.getList(params);
 
@@ -95,6 +201,20 @@ const TalentsPage = {
                                     </select>
                                 </div>
                             </div>
+                            <div class="filter-row">
+                                <div class="filter-item">
+                                    <label class="form-label">筛选条件</label>
+                                    <select class="form-control" id="filterCondition" onchange="TalentsPage.onConditionChange(this.value)">
+                                        <option value="">不限</option>
+                                        ${this.conditionList.map(c => `
+                                            <option value="${c.id}" ${this.filters.condition_id === c.id ? 'selected' : ''}>${this.escapeHtml(c.name)}</option>
+                                        `).join('')}
+                                    </select>
+                                </div>
+                                <div class="filter-item condition-detail-container" id="conditionDetail" colspan="3">
+                                    ${this.selectedCondition ? this.renderConditionDetailStatic() : ''}
+                                </div>
+                            </div>
                             <div class="filter-actions">
                                 <button class="btn btn-secondary" id="resetFilter">重置</button>
                                 <button class="btn btn-primary" id="applyFilter">查询</button>
@@ -112,6 +232,62 @@ const TalentsPage = {
                             ${UI.renderPagination(this.pagination.page, this.pagination.totalPages, (page) => this.changePage(page))}
                         </div>
                     ` : ''}
+                </div>
+            </div>
+        `;
+    },
+
+    /**
+     * 静态渲染筛选条件详情（用于初始渲染）
+     */
+    renderConditionDetailStatic() {
+        if (!this.selectedCondition) return '';
+        
+        const config = this.selectedCondition.config || {};
+        const educationLabels = {
+            doctor: '博士',
+            master: '硕士',
+            bachelor: '本科',
+            college: '大专',
+            high_school: '高中及以下',
+        };
+        const schoolTierLabels = {
+            top: '顶尖院校（985/C9）',
+            key: '重点院校（211）',
+            ordinary: '普通院校',
+            overseas: '海外院校',
+        };
+
+        const details = [];
+        if (config.education_level) {
+            details.push(`<span class="condition-tag">学历: ${educationLabels[config.education_level] || config.education_level}</span>`);
+        }
+        if (config.experience_years !== undefined && config.experience_years !== null) {
+            details.push(`<span class="condition-tag">工作年限: ${config.experience_years}+ 年</span>`);
+        }
+        if (config.school_tier) {
+            details.push(`<span class="condition-tag">院校层次: ${schoolTierLabels[config.school_tier] || config.school_tier}</span>`);
+        }
+        if (config.skills && config.skills.length > 0) {
+            details.push(`<span class="condition-tag">技能: ${config.skills.join(', ')}</span>`);
+        }
+        if (config.major && config.major.length > 0) {
+            details.push(`<span class="condition-tag">专业: ${config.major.join(', ')}</span>`);
+        }
+
+        return `
+            <div class="condition-detail-box">
+                <div class="condition-detail-header">
+                    <span class="condition-name">${this.escapeHtml(this.selectedCondition.name)}</span>
+                    <button class="btn btn-ghost btn-sm" onclick="TalentsPage.clearCondition()" title="清除筛选条件">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"/>
+                            <line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="condition-detail-tags">
+                    ${details.join('')}
                 </div>
             </div>
         `;
@@ -242,6 +418,7 @@ const TalentsPage = {
         this.filters.major = document.getElementById('filterMajor')?.value.trim() || '';
         this.filters.school = document.getElementById('filterSchool')?.value.trim() || '';
         this.filters.screening_status = document.getElementById('filterStatus')?.value || '';
+        this.filters.condition_id = document.getElementById('filterCondition')?.value || '';
         
         this.pagination.page = 1;
         this.refresh();
@@ -251,7 +428,8 @@ const TalentsPage = {
      * 重置筛选条件
      */
     resetFilter() {
-        this.filters = { name: '', major: '', school: '', screening_status: '' };
+        this.filters = { name: '', major: '', school: '', screening_status: '', condition_id: '' };
+        this.selectedCondition = null;
         this.pagination.page = 1;
         this.refresh();
     },
@@ -312,14 +490,24 @@ const TalentsPage = {
             ? '<span class="badge badge-success">通过</span>'
             : '<span class="badge badge-danger">未通过</span>';
 
+        // 使用后端 API 地址获取头像
+        const photoUrl = talent.id ? `http://localhost:8000/api/v1/talents/${talent.id}/photo` : '';
+        const avatarContent = photoUrl 
+            ? `<img src="${photoUrl}" alt="头像" class="avatar-image" onerror="this.style.display='none';this.nextElementSibling.style.display='block';">
+               <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" style="display:none;">
+                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                   <circle cx="12" cy="7" r="4"/>
+               </svg>`
+            : `<svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
+                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                   <circle cx="12" cy="7" r="4"/>
+               </svg>`;
+
         const content = `
             <div class="talent-detail">
                 <div class="detail-header">
                     <div class="detail-avatar">
-                        <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
-                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                            <circle cx="12" cy="7" r="4"/>
-                        </svg>
+                        ${avatarContent}
                     </div>
                     <div class="detail-info">
                         <h3 class="detail-name">${this.escapeHtml(talent.name)}</h3>
@@ -527,6 +715,49 @@ talentsStyles.textContent = `
         color: var(--primary-color);
         border-radius: 100px;
         font-size: 13px;
+    }
+
+    .condition-detail-container {
+        display: flex;
+        align-items: center;
+    }
+
+    .condition-detail-box {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px 16px;
+        background-color: var(--bg-secondary);
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+        flex: 1;
+    }
+
+    .condition-detail-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .condition-detail-header .condition-name {
+        font-weight: 600;
+        color: var(--text-primary);
+        font-size: 14px;
+    }
+
+    .condition-detail-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .condition-tag {
+        display: inline-block;
+        padding: 4px 10px;
+        background-color: var(--primary-bg);
+        color: var(--primary-color);
+        border-radius: 4px;
+        font-size: 12px;
     }
 
     @media (max-width: 1024px) {

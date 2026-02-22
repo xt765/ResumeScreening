@@ -36,6 +36,7 @@ class ResumeState(BaseModel):
     file_path: str = Field(..., description="简历文件路径")
     file_content: bytes | None = Field(default=None, description="文件二进制内容")
     file_type: str | None = Field(default=None, description="文件类型")
+    content_hash: str | None = Field(default=None, description="简历内容哈希（SHA256，用于去重）")
 
     # 解析提取结果
     text_content: str | None = Field(default=None, description="提取的文本内容")

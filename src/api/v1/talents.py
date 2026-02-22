@@ -16,9 +16,10 @@ import tempfile
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi.responses import StreamingResponse
 from loguru import logger
 from pydantic import BaseModel, Field
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_session
@@ -137,6 +138,69 @@ def _map_to_response(talent: TalentInfo) -> TalentDetailResponse:
     )
 
 
+def _build_condition_filters(config: dict[str, Any]) -> list:
+    """根据筛选条件配置构建 SQLAlchemy 过滤条件。
+
+    Args:
+        config: 筛选条件配置字典
+
+    Returns:
+        list: SQLAlchemy 过滤条件列表
+    """
+    filters = []
+
+    education_order = {"doctor": 5, "master": 4, "bachelor": 3, "college": 2, "high_school": 1}
+    education_cn_map = {
+        "doctor": "博士",
+        "master": "硕士",
+        "bachelor": "本科",
+        "college": "大专",
+        "high_school": "高中及以下",
+    }
+
+    education_level = config.get("education_level")
+    if education_level:
+        min_level = education_order.get(education_level, 0)
+        valid_levels_en = [k for k, v in education_order.items() if v >= min_level]
+        valid_levels_cn = [education_cn_map.get(k, k) for k in valid_levels_en]
+        valid_levels = valid_levels_en + valid_levels_cn
+        filters.append(TalentInfo.education_level.in_(valid_levels))
+
+    experience_years = config.get("experience_years")
+    if experience_years is not None:
+        filters.append(TalentInfo.work_years >= experience_years)
+
+    experience_years_max = config.get("experience_years_max")
+    if experience_years_max is not None:
+        filters.append(TalentInfo.work_years <= experience_years_max)
+
+    skills = config.get("skills", [])
+    if skills:
+        for skill in skills:
+            filters.append(TalentInfo.skills.contains([skill]))
+
+    major = config.get("major", [])
+    if major:
+        major_conditions = [TalentInfo.major.ilike(f"%{m}%") for m in major]
+        if major_conditions:
+            filters.append(or_(*major_conditions))
+
+    school_tier = config.get("school_tier")
+    if school_tier:
+        tier_schools = {
+            "top": ["985", "C9", "清华", "北大", "复旦", "上交", "浙大", "中科大", "南大", "西交", "哈工大"],
+            "key": ["211", "重点"],
+            "overseas": ["大学", "University", "学院", "College"],
+        }
+        tier_keywords = tier_schools.get(school_tier, [])
+        if tier_keywords:
+            school_conditions = [TalentInfo.school.ilike(f"%{kw}%") for kw in tier_keywords]
+            if school_conditions:
+                filters.append(or_(*school_conditions))
+
+    return filters
+
+
 @router.post(
     "/upload-screen",
     response_model=APIResponse[dict[str, Any]],
@@ -184,6 +248,35 @@ async def upload_and_screen(
             detail=f"文件大小超过限制（最大 10MB），当前: {len(content) / 1024 / 1024:.2f}MB",
         )
 
+    # 计算内容哈希用于去重
+    import hashlib
+
+    content_hash = hashlib.sha256(content).hexdigest()
+    logger.info(f"简历内容哈希: {content_hash[:16]}...")
+
+    # 检查是否已存在相同内容的简历
+    from src.models import async_session_factory
+
+    async with async_session_factory() as session:
+        existing_talent = await session.execute(
+            select(TalentInfo).where(TalentInfo.content_hash == content_hash)
+        )
+        existing = existing_talent.scalar_one_or_none()
+        if existing:
+            logger.warning(f"检测到重复简历: talent_id={existing.id}, name={existing.name}")
+            return APIResponse(
+                success=False,
+                message="该简历已存在，跳过重复上传",
+                data={
+                    "talent_id": existing.id,
+                    "name": existing.name,
+                    "is_duplicate": True,
+                    "existing_screening_status": existing.screening_status.value
+                    if existing.screening_status
+                    else None,
+                },
+            )
+
     # 保存临时文件
     temp_fd, temp_path = tempfile.mkstemp(suffix=f".{file_ext}")
     os.close(temp_fd)  # 关闭文件描述符
@@ -194,6 +287,7 @@ async def upload_and_screen(
         result = await run_resume_workflow(
             file_path=temp_path,
             condition_id=condition_id,
+            content_hash=content_hash,
         )
 
         if result.get("error_message"):
@@ -230,11 +324,306 @@ async def upload_and_screen(
         Path(temp_path).unlink(missing_ok=True)
 
 
+@router.post(
+    "/batch-upload",
+    response_model=APIResponse[dict[str, Any]],
+    status_code=status.HTTP_201_CREATED,
+    summary="批量上传简历",
+    description="批量上传多个简历文件，后台处理并返回任务 ID",
+)
+async def batch_upload(
+    files: Annotated[list[UploadFile], File(description="简历文件列表")],
+    condition_id: Annotated[str | None, Query(description="筛选条件ID")] = None,
+) -> APIResponse[dict[str, Any]]:
+    """批量上传简历。
+
+    Args:
+        files: 上传的简历文件列表
+        condition_id: 筛选条件 ID
+
+    Returns:
+        APIResponse[dict[str, Any]]: 包含任务 ID 的响应
+
+    Raises:
+        HTTPException: 文件验证失败
+    """
+    from src.core.tasks import task_manager
+    from src.workflows.resume_workflow import run_resume_workflow
+
+    logger.info(f"收到批量上传请求: file_count={len(files)}, condition_id={condition_id}")
+
+    # 验证文件数量
+    if len(files) > 50:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="最多支持同时上传 50 个文件",
+        )
+
+    # 验证每个文件并读取内容到内存
+    file_data_list: list[dict[str, Any]] = []
+    for file in files:
+        if not file.filename:
+            continue
+        file_ext = file.filename.rsplit(".", 1)[-1].lower()
+        if file_ext not in ALLOWED_FILE_TYPES:
+            continue
+
+        # 读取文件内容到内存
+        content = await file.read()
+        if len(content) > MAX_FILE_SIZE:
+            continue
+
+        file_data_list.append(
+            {
+                "filename": file.filename,
+                "content": content,
+                "ext": file_ext,
+            }
+        )
+
+    if not file_data_list:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="没有有效的简历文件",
+        )
+
+    # 创建任务
+    task = task_manager.create_task(
+        name=f"批量上传简历 ({len(file_data_list)} 个文件)",
+        metadata={"condition_id": condition_id, "file_count": len(file_data_list)},
+    )
+
+    # 定义批量处理函数
+    async def process_batch() -> dict[str, Any]:
+        """批量处理简历。"""
+        from src.models import async_session_factory
+
+        results = []
+        success_count = 0
+        failed_count = 0
+        duplicate_count = 0
+
+        for idx, file_data in enumerate(file_data_list):
+            filename = file_data["filename"]
+            content = file_data["content"]
+            file_ext = file_data["ext"]
+
+            try:
+                # 计算内容哈希
+                import hashlib
+
+                content_hash = hashlib.sha256(content).hexdigest()
+
+                # 检查重复
+                async with async_session_factory() as session:
+                    existing_talent = await session.execute(
+                        select(TalentInfo).where(TalentInfo.content_hash == content_hash)
+                    )
+                    existing = existing_talent.scalar_one_or_none()
+                    if existing:
+                        results.append(
+                            {
+                                "filename": filename,
+                                "success": False,
+                                "error": "简历已存在",
+                                "is_duplicate": True,
+                                "talent_id": existing.id,
+                            }
+                        )
+                        duplicate_count += 1
+                        continue
+
+                # 保存临时文件
+                temp_fd, temp_path = tempfile.mkstemp(suffix=f".{file_ext}")
+                os.close(temp_fd)
+                try:
+                    Path(temp_path).write_bytes(content)
+
+                    # 执行工作流
+                    result = await run_resume_workflow(
+                        file_path=temp_path,
+                        condition_id=condition_id,
+                        content_hash=content_hash,
+                    )
+
+                    if result.get("error_message"):
+                        results.append(
+                            {
+                                "filename": filename,
+                                "success": False,
+                                "error": result["error_message"],
+                            }
+                        )
+                        failed_count += 1
+                    else:
+                        results.append(
+                            {
+                                "filename": filename,
+                                "success": True,
+                                "talent_id": result.get("talent_id"),
+                                "is_qualified": result.get("is_qualified"),
+                            }
+                        )
+                        success_count += 1
+
+                finally:
+                    Path(temp_path).unlink(missing_ok=True)
+
+            except Exception as e:
+                logger.exception(f"处理文件失败: {filename}, {e}")
+                results.append(
+                    {
+                        "filename": filename,
+                        "success": False,
+                        "error": str(e),
+                    }
+                )
+                failed_count += 1
+
+            # 更新进度
+            await task_manager.update_progress(
+                task.id,
+                idx + 1,
+                len(file_data_list),
+                f"正在处理: {filename}",
+            )
+
+        return {
+            "total": len(file_data_list),
+            "success": success_count,
+            "failed": failed_count,
+            "duplicate": duplicate_count,
+            "results": results,
+        }
+
+    # 启动后台任务
+    await task_manager.start_task(task.id, process_batch)
+
+    return APIResponse(
+        success=True,
+        message="批量上传任务已创建",
+        data={
+            "task_id": task.id,
+            "file_count": len(file_data_list),
+        },
+    )
+
+
+@router.get(
+    "/tasks",
+    response_model=APIResponse[list[dict[str, Any]]],
+    summary="获取任务列表",
+    description="获取后台任务列表",
+)
+async def list_tasks(
+    status: Annotated[str | None, Query(description="过滤状态")] = None,
+    limit: Annotated[int, Query(ge=1, le=100, description="返回数量限制")] = 20,
+) -> APIResponse[list[dict[str, Any]]]:
+    """获取任务列表。
+
+    Args:
+        status: 过滤状态
+        limit: 返回数量限制
+
+    Returns:
+        APIResponse[list[dict[str, Any]]]: 任务列表响应
+    """
+    from src.core.tasks import TaskStatusEnum, task_manager
+
+    status_enum = None
+    if status:
+        try:
+            status_enum = TaskStatusEnum(status)
+        except ValueError:
+            pass
+
+    tasks = task_manager.list_tasks(status=status_enum, limit=limit)
+    return APIResponse(
+        success=True,
+        message="获取成功",
+        data=[t.to_dict() for t in tasks],
+    )
+
+
+@router.get(
+    "/tasks/{task_id}",
+    response_model=APIResponse[dict[str, Any]],
+    summary="获取任务状态",
+    description="获取后台任务的状态和进度",
+)
+async def get_task_status(task_id: str) -> APIResponse[dict[str, Any]]:
+    """获取任务状态。
+
+    Args:
+        task_id: 任务 ID
+
+    Returns:
+        APIResponse[dict[str, Any]]: 任务状态响应
+
+    Raises:
+        HTTPException: 任务不存在
+    """
+    from src.core.tasks import task_manager
+
+    task = task_manager.get_task(task_id)
+    if task is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="任务不存在",
+        )
+
+    return APIResponse(
+        success=True,
+        message="获取成功",
+        data=task.to_dict(),
+    )
+
+
+@router.post(
+    "/tasks/{task_id}/cancel",
+    response_model=APIResponse[dict[str, Any]],
+    summary="取消任务",
+    description="取消正在执行的后台任务",
+)
+async def cancel_task(task_id: str) -> APIResponse[dict[str, Any]]:
+    """取消任务。
+
+    Args:
+        task_id: 任务 ID
+
+    Returns:
+        APIResponse[dict[str, Any]]: 取消结果响应
+
+    Raises:
+        HTTPException: 任务不存在或无法取消
+    """
+    from src.core.tasks import task_manager
+
+    task = task_manager.get_task(task_id)
+    if task is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="任务不存在",
+        )
+
+    if task_manager.cancel_task(task_id):
+        return APIResponse(
+            success=True,
+            message="任务已取消",
+            data={"task_id": task_id},
+        )
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="无法取消任务（可能已完成或已取消）",
+        )
+
+
 @router.get(
     "",
     response_model=APIResponse[PaginatedResponse[TalentDetailResponse]],
     summary="分页查询人才列表",
-    description="支持按姓名、专业、院校、选拔日期等条件筛选",
+    description="支持按姓名、专业、院校、选拔日期、筛选条件等条件筛选",
 )
 async def list_talents(
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -248,6 +637,7 @@ async def list_talents(
         str | None, Query(description="选拔日期截止（YYYY-MM-DD）")
     ] = None,
     screening_status: Annotated[ScreeningStatusEnum | None, Query(description="筛选状态")] = None,
+    condition_id: Annotated[str | None, Query(description="筛选条件ID")] = None,
     page: Annotated[int, Query(ge=1, description="页码")] = 1,
     page_size: Annotated[int, Query(ge=1, le=100, description="每页数量")] = 10,
 ) -> APIResponse[PaginatedResponse[TalentDetailResponse]]:
@@ -261,6 +651,7 @@ async def list_talents(
         screening_date_start: 选拔日期起始
         screening_date_end: 选拔日期截止
         screening_status: 筛选状态
+        condition_id: 筛选条件ID（按条件过滤人才）
         page: 页码（从 1 开始）
         page_size: 每页数量
 
@@ -268,12 +659,26 @@ async def list_talents(
         APIResponse[PaginatedResponse[TalentDetailResponse]]: 分页数据响应
     """
     logger.info(
-        f"查询人才列表: name={name}, major={major}, school={school}, screening_status={screening_status}, page={page}"
+        f"查询人才列表: name={name}, major={major}, school={school}, screening_status={screening_status}, condition_id={condition_id}, page={page}"
     )
 
     try:
-        # 构建查询条件
-        conditions = [TalentInfo.workflow_status.in_([WorkflowStatusEnum.COMPLETED, WorkflowStatusEnum.STORING])]
+        from src.models.condition import ScreeningCondition
+
+        condition_config = None
+        if condition_id:
+            cond_result = await session.execute(
+                select(ScreeningCondition).where(ScreeningCondition.id == condition_id)
+            )
+            condition_record = cond_result.scalar_one_or_none()
+            if condition_record and condition_record.conditions:
+                condition_config = condition_record.conditions
+
+        conditions = [
+            TalentInfo.workflow_status.in_(
+                [WorkflowStatusEnum.COMPLETED, WorkflowStatusEnum.STORING]
+            )
+        ]
 
         if name:
             conditions.append(TalentInfo.name.ilike(f"%{name}%"))
@@ -287,6 +692,10 @@ async def list_talents(
             conditions.append(TalentInfo.screening_date >= screening_date_start)
         if screening_date_end:
             conditions.append(TalentInfo.screening_date <= screening_date_end)
+
+        if condition_config:
+            cond_conditions = _build_condition_filters(condition_config)
+            conditions.extend(cond_conditions)
 
         # 查询总数
         count_query = select(func.count()).select_from(TalentInfo).where(and_(*conditions))
@@ -384,6 +793,62 @@ async def get_talent(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"查询人才详情失败: {e}",
+        ) from None
+
+
+@router.get(
+    "/{talent_id}/photo",
+    summary="获取人才头像",
+    description="从 MinIO 获取人才头像图片",
+    responses={
+        200: {"content": {"image/png": {}}},
+        404: {"description": "头像不存在"},
+    },
+)
+async def get_talent_photo(
+    talent_id: str,
+) -> StreamingResponse:
+    """获取人才头像图片。
+
+    Args:
+        talent_id: 人才 ID
+
+    Returns:
+        StreamingResponse: 图片流响应
+
+    Raises:
+        HTTPException: 头像不存在时抛出
+    """
+    from io import BytesIO
+
+    from src.storage.minio_client import MinIOClient
+
+    logger.info(f"获取人才头像: talent_id={talent_id}")
+
+    try:
+        minio_client = MinIOClient()
+        object_name = f"talents/{talent_id}/photo_1.png"
+        image_data = minio_client.get_image(object_name)
+
+        if image_data is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="头像不存在",
+            )
+
+        return StreamingResponse(
+            BytesIO(image_data),
+            media_type="image/png",
+            headers={"Cache-Control": "max-age=86400"},
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"获取人才头像失败: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取人才头像失败: {e}",
         ) from None
 
 

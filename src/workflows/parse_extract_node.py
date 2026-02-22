@@ -96,7 +96,9 @@ def _parse_pdf(file_path: str) -> ParseResult:
         if len(images) > 1:
             images = filter_avatar_images(images)
 
-        logger.info(f"PDF 解析完成: pages={page_count}, chars={len(full_text)}, images={len(images)}")
+        logger.info(
+            f"PDF 解析完成: pages={page_count}, chars={len(full_text)}, images={len(images)}"
+        )
 
         return ParseResult(
             text=full_text,

@@ -179,6 +179,12 @@ class TalentInfo(Base, TimestampMixin):
         default="",
         comment="照片地址",
     )
+    content_hash: Mapped[str] = mapped_column(
+        String(64),
+        nullable=True,
+        index=True,
+        comment="简历内容哈希（SHA256，用于去重）",
+    )
     resume_text: Mapped[str] = mapped_column(
         Text,
         nullable=True,

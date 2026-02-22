@@ -1197,3 +1197,121 @@ select.form-control {
 .gap-3 { gap: 16px; }
 
 .hidden { display: none !important; }
+
+/* ========================================
+   人才详情样式
+======================================== */
+.talent-detail {
+    padding: 0;
+}
+
+.detail-header {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.detail-avatar {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background-color: var(--bg-tertiary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.detail-avatar .avatar-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.detail-avatar svg {
+    color: var(--text-muted);
+}
+
+.detail-info {
+    flex: 1;
+}
+
+.detail-name {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 8px 0;
+}
+
+.detail-meta {
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.detail-meta .separator {
+    margin: 0 8px;
+    color: var(--border-color);
+}
+
+.detail-status {
+    flex-shrink: 0;
+}
+
+.detail-section {
+    margin-bottom: 24px;
+}
+
+.detail-section:last-child {
+    margin-bottom: 0;
+}
+
+.section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 16px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.detail-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+}
+
+.detail-grid .detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.detail-grid .detail-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    min-width: auto;
+}
+
+.detail-grid .detail-value {
+    font-size: 14px;
+    color: var(--text-primary);
+}
+
+.skill-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.skill-tag {
+    display: inline-block;
+    padding: 4px 12px;
+    font-size: 13px;
+    color: var(--primary-color);
+    background-color: var(--primary-bg);
+    border-radius: var(--radius-sm);
+}

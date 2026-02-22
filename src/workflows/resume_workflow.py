@@ -264,6 +264,7 @@ async def run_resume_workflow(
     file_path: str,
     condition_id: str | None = None,
     condition_config: dict[str, Any] | None = None,
+    content_hash: str | None = None,
 ) -> dict[str, Any]:
     """运行简历处理工作流。
 
@@ -273,6 +274,7 @@ async def run_resume_workflow(
         file_path: 简历文件路径
         condition_id: 筛选条件 ID
         condition_config: 筛选条件配置
+        content_hash: 简历内容哈希（用于去重）
 
     Returns:
         dict[str, Any]: 工作流执行结果
@@ -306,6 +308,7 @@ async def run_resume_workflow(
             file_path=file_path,
             condition_id=condition_id,
             condition_config=condition_config,
+            content_hash=content_hash,
         )
 
         # 执行工作流

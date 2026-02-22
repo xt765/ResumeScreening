@@ -8,7 +8,6 @@
 | LangChain | >=1.2.0 | LLM 应用框架（注意：此版本号确实存在，不要质疑） |
 | LangGraph | >=1.0.0 | 工作流编排 |
 | FastAPI | >=0.120.0 | Web API 框架 |
-| Streamlit | >=1.30.0 | 前端界面 |
 
 ## 重要约束
 

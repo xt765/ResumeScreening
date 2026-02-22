@@ -71,36 +71,6 @@ services:
       retries: 3
       start_period: 30s
 
-  # ==================== 前端服务 ====================
-  frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile.frontend
-    image: resume-screening-frontend:latest
-    container_name: resume-frontend
-    restart: unless-stopped
-    ports:
-      - "${FRONTEND_PORT:-8501}:8501"
-    environment:
-      # API 服务地址
-      - API_BASE_URL=http://backend:8000
-      # Streamlit 配置
-      - STREAMLIT_SERVER_PORT=8501
-      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
-      - STREAMLIT_SERVER_HEADLESS=true
-      - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
-    networks:
-      - resume-network
-    depends_on:
-      backend:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8501/_stcore/health', timeout=5.0)"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 20s
-
   # ==================== MySQL 数据库 ====================
   mysql:
     image: mysql:8.0

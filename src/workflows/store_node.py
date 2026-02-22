@@ -12,49 +12,16 @@ from typing import Any
 from uuid import uuid4
 
 from loguru import logger
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.exceptions import DatabaseException, StorageException, WorkflowException
+from src.core.security import encrypt_data
 from src.models import ScreeningStatusEnum, TalentInfo, WorkflowStatusEnum
 from src import models
 from src.storage.chroma_client import chroma_client
 from src.storage.minio_client import minio_client
 from src.workflows.state import ResumeState
-
-
-def _encrypt_sensitive_data(data: str, key: str) -> str:
-    """加密敏感数据。
-
-    使用 AES 加密敏感信息（电话、邮箱）。
-
-    Args:
-        data: 原始数据
-        key: 加密密钥
-
-    Returns:
-        str: 加密后的数据（Base64 编码）
-    """
-    if not data:
-        return ""
-
-    try:
-        import base64
-        import hashlib
-
-        from cryptography.fernet import Fernet
-
-        # 从密钥生成 Fernet 密钥
-        key_bytes = key.encode("utf-8")
-        hashed_key = hashlib.sha256(key_bytes).digest()
-        fernet_key = base64.urlsafe_b64encode(hashed_key)
-        fernet = Fernet(fernet_key)
-
-        encrypted = fernet.encrypt(data.encode("utf-8"))
-        return encrypted.decode("utf-8")
-
-    except Exception as e:
-        logger.warning(f"数据加密失败，使用明文存储: {e}")
-        return data
 
 
 def _upload_images_to_minio(
@@ -172,21 +139,12 @@ async def _save_to_mysql(
     Raises:
         DatabaseException: 数据库操作失败
     """
-    from src.core.config import get_settings
-
     try:
-        settings = get_settings()
         candidate_info = state.candidate_info or {}
 
-        # 加密敏感信息
-        encrypted_phone = _encrypt_sensitive_data(
-            candidate_info.get("phone", ""),
-            settings.app.aes_key,
-        )
-        encrypted_email = _encrypt_sensitive_data(
-            candidate_info.get("email", ""),
-            settings.app.aes_key,
-        )
+        # 加密敏感信息（使用统一的加密方法）
+        encrypted_phone = encrypt_data(candidate_info.get("phone", ""))
+        encrypted_email = encrypt_data(candidate_info.get("email", ""))
 
         # 解析毕业日期
         graduation_date = None
@@ -212,6 +170,7 @@ async def _save_to_mysql(
             work_years=candidate_info.get("work_years", 0),
             photo_url=photo_urls[0] if photo_urls else "",
             resume_text=state.text_content or "",
+            content_hash=state.content_hash,
             condition_id=state.condition_id,
             workflow_status=WorkflowStatusEnum.STORING,
             screening_status=(
@@ -244,9 +203,10 @@ async def store_node(state: ResumeState) -> dict[str, Any]:
     """入库节点。
 
     将筛选结果存储到多个数据存储：
-    1. 上传图片到 MinIO
-    2. 存储向量到 ChromaDB
-    3. 保存人才信息到 MySQL
+    1. 保存人才信息到 MySQL（获取真实 ID）
+    2. 上传图片到 MinIO（使用真实 ID）
+    3. 更新 photo_url
+    4. 存储向量到 ChromaDB
 
     Args:
         state: 当前工作流状态
@@ -280,24 +240,23 @@ async def store_node(state: ResumeState) -> dict[str, Any]:
             )
 
         async with models.async_session_factory() as session:
-            # 生成临时 ID（用于图片上传）
-            temp_talent_id = str(uuid4())
+            # 1. 先保存到 MySQL（获取真实 ID）
+            talent_id = await _save_to_mysql(state, [], session)
 
-            # 1. 上传图片到 MinIO
+            # 2. 上传图片到 MinIO（使用真实 ID）
             photo_urls: list[str] = []
             if state.images:
-                photo_urls = _upload_images_to_minio(state.images, temp_talent_id)
+                photo_urls = _upload_images_to_minio(state.images, talent_id)
 
-            # 2. 保存到 MySQL（获取正式 ID）
-            talent_id = await _save_to_mysql(state, photo_urls, session)
+            # 3. 更新 photo_url
+            if photo_urls:
+                await session.execute(
+                    update(TalentInfo)
+                    .where(TalentInfo.id == talent_id)
+                    .values(photo_url=photo_urls[0])
+                )
 
-            # 如果图片使用了临时 ID，需要重命名
-            if photo_urls and talent_id != temp_talent_id:
-                # MinIO 中的对象名称包含 temp_talent_id，这里可以选择重命名或保留
-                # 为简化逻辑，保留原 URL，仅更新 photo_url 字段
-                pass
-
-            # 3. 存储向量到 ChromaDB
+            # 4. 存储向量到 ChromaDB
             if state.text_content:
                 _store_to_chromadb(
                     talent_id,

@@ -109,9 +109,7 @@ class ChromaClient:
             logger.exception(f"获取/创建集合失败: {name}, 错误: {e}")
             raise
 
-    def _get_target_collection(
-        self, collection: Collection | str | None
-    ) -> Collection:
+    def _get_target_collection(self, collection: Collection | str | None) -> Collection:
         """获取目标集合。
 
         Args:

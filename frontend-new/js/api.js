@@ -226,6 +226,48 @@ const talentsApi = {
     },
 
     /**
+     * 批量上传简历
+     * @param {FileList|File[]} files - 简历文件列表
+     * @param {string|null} conditionId - 筛选条件 ID
+     */
+    async batchUpload(files, conditionId = null) {
+        const formData = new FormData();
+        for (const file of files) {
+            formData.append('files', file);
+        }
+        
+        const url = conditionId 
+            ? `/talents/batch-upload?condition_id=${conditionId}`
+            : '/talents/batch-upload';
+
+        return api.upload(url, formData);
+    },
+
+    /**
+     * 获取任务状态
+     * @param {string} taskId - 任务 ID
+     */
+    getTaskStatus(taskId) {
+        return api.get(`/talents/tasks/${taskId}`);
+    },
+
+    /**
+     * 获取任务列表
+     * @param {Object} params - 查询参数
+     */
+    getTaskList(params = {}) {
+        return api.get('/talents/tasks', params);
+    },
+
+    /**
+     * 取消任务
+     * @param {string} taskId - 任务 ID
+     */
+    cancelTask(taskId) {
+        return api.post(`/talents/tasks/${taskId}/cancel`);
+    },
+
+    /**
      * 向量化人才
      * @param {string} id - 人才 ID
      */
