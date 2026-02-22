@@ -4,9 +4,7 @@
  */
 
 const UploadPage = {
-    // 筛选条件列表
     conditions: [],
-    // 条件组配置
     conditionGroups: [
         {
             id: 'group_1',
@@ -14,63 +12,61 @@ const UploadPage = {
             conditionIds: [],
         },
     ],
-    // 组间逻辑
     groupLogic: 'and',
-    // 排除条件
     excludeConditionIds: [],
-    // 上传的文件列表
     uploadedFiles: [],
-    // 筛选结果
     screeningResult: null,
-    // WebSocket 连接
     ws: null,
-    // 当前任务 ID
     currentTaskId: null,
-    // localStorage 键名
     TASK_ID_KEY: 'resume_screening_task_id',
+    dataLoadedAt: null,
+    CACHE_DURATION: 5 * 60 * 1000,
 
-    /**
-     * 保存任务 ID 到 localStorage
-     */
     saveTaskId(taskId) {
         if (taskId) {
             localStorage.setItem(this.TASK_ID_KEY, taskId);
         }
     },
 
-    /**
-     * 清除 localStorage 中的任务 ID
-     */
     clearTaskId() {
         localStorage.removeItem(this.TASK_ID_KEY);
     },
 
-    /**
-     * 从 localStorage 获取任务 ID
-     */
     getSavedTaskId() {
         return localStorage.getItem(this.TASK_ID_KEY);
     },
 
-    /**
-     * 渲染页面
-     */
     async render() {
-        await this.loadConditions();
+        this.loadDataAsync();
         return this.renderContent();
     },
 
-    /**
-     * 加载筛选条件列表
-     */
-    async loadConditions() {
+    async loadDataAsync() {
+        const now = Date.now();
+        
+        if (this.conditions.length > 0 && this.dataLoadedAt) {
+            const age = now - this.dataLoadedAt;
+            if (age < this.CACHE_DURATION) {
+                return;
+            }
+        }
+
         try {
             const response = await conditionsApi.getList({ page: 1, page_size: 100 });
             if (response.success) {
                 this.conditions = response.data.items || [];
+                this.dataLoadedAt = now;
+                this.updateConditionBuilder();
             }
         } catch (error) {
             console.error('加载筛选条件失败:', error);
+        }
+    },
+
+    updateConditionBuilder() {
+        const builderContainer = document.querySelector('.condition-builder');
+        if (builderContainer) {
+            builderContainer.outerHTML = this.renderConditionBuilder();
         }
     },
 
