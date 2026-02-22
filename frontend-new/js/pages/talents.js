@@ -478,12 +478,8 @@ const TalentsPage = {
      * 刷新页面
      */
     async refresh() {
-        await this.loadTalents();
-        const container = document.getElementById('pageContainer');
-        if (container) {
-            container.innerHTML = this.renderContent();
-            this.initEvents();
-        }
+        this.dataLoadedAt = null;
+        await this.loadDataAsync();
     },
 
     /**

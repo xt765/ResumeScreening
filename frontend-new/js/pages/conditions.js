@@ -231,6 +231,7 @@ const ConditionsPage = {
      * 刷新页面
      */
     async refresh() {
+        this.dataLoadedAt = null;
         await this.loadDataAsync();
     },
 
