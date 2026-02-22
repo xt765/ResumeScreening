@@ -1,6 +1,6 @@
 /**
  * 简历上传筛选模块
- * 提供单文件/批量上传、多条件筛选构建器、实时进度显示功能
+ * 提供上传、多条件筛选构建器、实时进度显示功能
  */
 
 const UploadPage = {
@@ -18,7 +18,7 @@ const UploadPage = {
     groupLogic: 'and',
     // 排除条件
     excludeConditionIds: [],
-    // 上传的文件列表（批量上传）
+    // 上传的文件列表
     uploadedFiles: [],
     // 筛选结果
     screeningResult: null,
@@ -26,8 +26,6 @@ const UploadPage = {
     ws: null,
     // 当前任务 ID
     currentTaskId: null,
-    // 是否批量模式
-    isBatchMode: false,
 
     /**
      * 渲染页面
@@ -61,14 +59,6 @@ const UploadPage = {
                     <div class="card">
                         <div class="card-header">
                             <h3 class="card-title">上传简历</h3>
-                            <div class="upload-mode-toggle">
-                                <button class="btn btn-sm ${!this.isBatchMode ? 'btn-primary' : 'btn-ghost'}" id="singleModeBtn">
-                                    单文件上传
-                                </button>
-                                <button class="btn btn-sm ${this.isBatchMode ? 'btn-primary' : 'btn-ghost'}" id="batchModeBtn">
-                                    批量上传
-                                </button>
-                            </div>
                         </div>
                         <div class="card-body">
                             <div class="upload-area" id="uploadArea">
@@ -77,9 +67,9 @@ const UploadPage = {
                                     <polyline points="17 8 12 3 7 8"/>
                                     <line x1="12" y1="3" x2="12" y2="15"/>
                                 </svg>
-                                <div class="upload-title">${this.isBatchMode ? '拖拽多个文件到此处或点击选择' : '拖拽文件到此处或点击上传'}</div>
-                                <div class="upload-hint">支持 PDF、DOCX 格式，最大 10MB${this.isBatchMode ? '，最多 50 个文件' : ''}</div>
-                                <input type="file" id="fileInput" accept=".pdf,.docx,.doc" ${this.isBatchMode ? 'multiple' : ''} hidden>
+                                <div class="upload-title">拖拽文件到此处或点击选择</div>
+                                <div class="upload-hint">支持 PDF、DOCX 格式，单个文件最大 10MB，最多 50 个文件</div>
+                                <input type="file" id="fileInput" accept=".pdf,.docx,.doc" multiple hidden>
                             </div>
 
                             <div class="file-list hidden" id="fileList">
@@ -545,19 +535,9 @@ const UploadPage = {
         const fileInput = document.getElementById('fileInput');
         const clearAllBtn = document.getElementById('clearAllBtn');
         const submitBtn = document.getElementById('submitBtn');
-        const singleModeBtn = document.getElementById('singleModeBtn');
-        const batchModeBtn = document.getElementById('batchModeBtn');
         const cancelTaskBtn = document.getElementById('cancelTaskBtn');
         const addGroupBtn = document.getElementById('addGroupBtn');
         const resetConditionsBtn = document.getElementById('resetConditionsBtn');
-
-        // 模式切换
-        if (singleModeBtn) {
-            singleModeBtn.addEventListener('click', () => this.setBatchMode(false));
-        }
-        if (batchModeBtn) {
-            batchModeBtn.addEventListener('click', () => this.setBatchMode(true));
-        }
 
         // 点击上传区域
         if (uploadArea && fileInput) {
@@ -578,11 +558,7 @@ const UploadPage = {
                 uploadArea.classList.remove('dragover');
                 const files = Array.from(e.dataTransfer.files);
                 if (files.length > 0) {
-                    if (this.isBatchMode) {
-                        this.handleFilesSelect(files);
-                    } else {
-                        this.handleFileSelect(files[0]);
-                    }
+                    this.handleFilesSelect(files);
                 }
             });
 
@@ -590,11 +566,7 @@ const UploadPage = {
             fileInput.addEventListener('change', (e) => {
                 const files = Array.from(e.target.files);
                 if (files.length > 0) {
-                    if (this.isBatchMode) {
-                        this.handleFilesSelect(files);
-                    } else {
-                        this.handleFileSelect(files[0]);
-                    }
+                    this.handleFilesSelect(files);
                 }
             });
         }
@@ -626,21 +598,6 @@ const UploadPage = {
 
         // 初始化 WebSocket
         this.initWebSocket();
-    },
-
-    /**
-     * 设置上传模式
-     */
-    setBatchMode(isBatch) {
-        this.isBatchMode = isBatch;
-        this.clearAllFiles();
-        
-        // 重新渲染页面
-        const mainContent = document.getElementById('mainContent');
-        if (mainContent) {
-            mainContent.innerHTML = this.renderContent();
-            this.initEvents();
-        }
     },
 
     /**
@@ -685,31 +642,7 @@ const UploadPage = {
     },
 
     /**
-     * 处理单文件选择
-     */
-    handleFileSelect(file) {
-        // 验证文件类型
-        const allowedTypes = ['pdf', 'docx', 'doc'];
-        const ext = file.name.split('.').pop().toLowerCase();
-        
-        if (!allowedTypes.includes(ext)) {
-            UI.toast('不支持的文件格式，请上传 PDF 或 DOCX 文件', 'error');
-            return;
-        }
-
-        // 验证文件大小（10MB）
-        if (file.size > 10 * 1024 * 1024) {
-            UI.toast('文件大小超过限制（最大 10MB）', 'error');
-            return;
-        }
-
-        this.uploadedFiles = [file];
-        this.showFileList();
-        this.updateSubmitButton();
-    },
-
-    /**
-     * 处理多文件选择
+     * 处理文件选择
      */
     handleFilesSelect(files) {
         const allowedTypes = ['pdf', 'docx', 'doc'];
@@ -837,11 +770,8 @@ const UploadPage = {
         }
         
         if (submitBtnText) {
-            if (this.isBatchMode) {
-                submitBtnText.textContent = `开始筛选 (${this.uploadedFiles.length} 个文件)`;
-            } else {
-                submitBtnText.textContent = '开始筛选';
-            }
+            const count = this.uploadedFiles.length;
+            submitBtnText.textContent = count > 0 ? `开始筛选 (${count} 个文件)` : '开始筛选';
         }
     },
 
@@ -870,48 +800,28 @@ const UploadPage = {
                 progress: { current: 0, total: this.uploadedFiles.length, percentage: 0, message: '正在提交...' }
             });
 
-            // 获取筛选配置
-            const filterConfig = this.getFilterConfig();
-            
             // 获取第一个条件 ID（向后兼容）
             const firstConditionId = this.conditionGroups[0]?.conditionIds[0] || null;
 
-            let response;
-            if (this.uploadedFiles.length === 1) {
-                // 单文件上传
-                response = await talentsApi.uploadAndScreen(
-                    this.uploadedFiles[0],
-                    firstConditionId
-                );
+            // 统一使用批量上传接口
+            const response = await talentsApi.batchUpload(
+                this.uploadedFiles,
+                firstConditionId
+            );
+
+            if (response.success) {
+                this.currentTaskId = response.data.task_id;
                 
-                if (response.success) {
-                    // 单文件直接显示结果
-                    this.screeningResult = response.data;
-                    this.showResult(response.data);
+                // 订阅任务更新
+                if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                    this.ws.send(JSON.stringify({
+                        type: 'subscribe',
+                        task_id: this.currentTaskId
+                    }));
                 }
+                
+                UI.toast(`上传任务已创建，共 ${response.data.file_count} 个文件`, 'success');
             } else {
-                // 批量上传
-                response = await talentsApi.batchUpload(
-                    this.uploadedFiles,
-                    firstConditionId
-                );
-
-                if (response.success) {
-                    this.currentTaskId = response.data.task_id;
-                    
-                    // 订阅任务更新
-                    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-                        this.ws.send(JSON.stringify({
-                            type: 'subscribe',
-                            task_id: this.currentTaskId
-                        }));
-                    }
-                    
-                    UI.toast(`批量上传任务已创建，共 ${response.data.file_count} 个文件`, 'success');
-                }
-            }
-
-            if (!response.success) {
                 UI.toast(response.message || '上传失败', 'error');
             }
 
@@ -974,7 +884,7 @@ const UploadPage = {
 
         // 任务完成时显示结果
         if (taskData.status === 'completed') {
-            this.showBatchResult(taskData.result);
+            this.showResult(taskData.result);
         }
     },
 
@@ -995,67 +905,9 @@ const UploadPage = {
     },
 
     /**
-     * 显示单文件筛选结果
+     * 显示筛选结果
      */
     showResult(result) {
-        const resultContainer = document.getElementById('resultContainer');
-        const resultBody = document.getElementById('resultBody');
-        const progressContainer = document.getElementById('progressContainer');
-
-        if (!resultContainer || !resultBody) return;
-
-        if (progressContainer) progressContainer.classList.add('hidden');
-        resultContainer.classList.remove('hidden');
-
-        const isQualified = result.is_qualified;
-        const statusClass = isQualified ? 'success' : 'danger';
-        const statusText = isQualified ? '通过筛选' : '未通过筛选';
-        const statusIcon = isQualified 
-            ? '<svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'
-            : '<svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
-
-        resultBody.innerHTML = `
-            <div class="result-header ${statusClass}">
-                <div class="result-icon">${statusIcon}</div>
-                <div class="result-status">${statusText}</div>
-            </div>
-
-            <div class="result-details">
-                <div class="detail-item">
-                    <span class="detail-label">人才 ID</span>
-                    <span class="detail-value">${result.talent_id || '-'}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">处理状态</span>
-                    <span class="detail-value">${result.workflow_status || '-'}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">处理耗时</span>
-                    <span class="detail-value">${result.processing_time ? (result.processing_time / 1000).toFixed(2) + 's' : '-'}</span>
-                </div>
-                ${result.qualification_reason ? `
-                    <div class="detail-item full-width">
-                        <span class="detail-label">筛选原因</span>
-                        <span class="detail-value">${this.escapeHtml(result.qualification_reason)}</span>
-                    </div>
-                ` : ''}
-            </div>
-
-            <div class="result-actions">
-                <button class="btn btn-secondary" onclick="UploadPage.clearAllFiles()">
-                    继续上传
-                </button>
-                <a href="#/talents" class="btn btn-primary">
-                    查看人才列表
-                </a>
-            </div>
-        `;
-    },
-
-    /**
-     * 显示批量筛选结果
-     */
-    showBatchResult(result) {
         const resultContainer = document.getElementById('resultContainer');
         const resultBody = document.getElementById('resultBody');
         const progressContainer = document.getElementById('progressContainer');
@@ -1138,11 +990,6 @@ uploadStyles.textContent = `
         display: grid;
         gap: 20px;
         margin-bottom: 20px;
-    }
-
-    .upload-mode-toggle {
-        display: flex;
-        gap: 8px;
     }
 
     .file-list {
