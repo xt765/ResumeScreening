@@ -213,13 +213,21 @@ def _quick_filter(
     unmatched: list[str] = []
     matched: list[str] = []
 
-    # 学历快速筛选
+    education_levels = ["高中", "大专", "本科", "硕士", "博士"]
+
     required_education = condition_config.get("education_level", "")
     if required_education:
         candidate_education = candidate_info.get("education_level", "")
-        education_levels = ["高中", "大专", "本科", "硕士", "博士"]
+        education_map = {
+            "high_school": "高中",
+            "college": "大专",
+            "bachelor": "本科",
+            "master": "硕士",
+            "doctor": "博士",
+        }
+        req_edu_cn = education_map.get(required_education, required_education)
         try:
-            req_idx = education_levels.index(required_education)
+            req_idx = education_levels.index(req_edu_cn)
             cand_idx = (
                 education_levels.index(candidate_education)
                 if candidate_education in education_levels
@@ -228,30 +236,36 @@ def _quick_filter(
             if cand_idx >= req_idx:
                 matched.append(f"学历符合: {candidate_education}")
             else:
-                unmatched.append(f"学历不足: 要求{required_education}，实际{candidate_education}")
+                unmatched.append(f"学历不足: 要求{req_edu_cn}，实际{candidate_education}")
         except ValueError:
-            pass  # 无法比较的学历，交给 LLM 判断
+            pass
 
-    # 工作年限快速筛选
     required_years = condition_config.get("experience_years", 0)
-    if required_years > 0:
-        candidate_years = candidate_info.get("work_years", 0)
+    if required_years and required_years > 0:
+        candidate_years = candidate_info.get("work_years", 0) or 0
         if candidate_years >= required_years:
             matched.append(f"工作年限符合: {candidate_years}年")
         else:
             unmatched.append(f"工作年限不足: 要求{required_years}年，实际{candidate_years}年")
 
-    # 如果有明确的硬性条件不满足，快速拒绝
-    if unmatched and not matched:
+    if unmatched:
         return FilterResult(
             is_qualified=False,
             score=30,
-            reason="快速筛选: 不满足基本条件",
+            reason="快速筛选: " + "; ".join(unmatched),
             matched_criteria=matched,
             unmatched_criteria=unmatched,
         )
 
-    # 无法快速判断，返回 None 让 LLM 处理
+    if matched:
+        return FilterResult(
+            is_qualified=True,
+            score=80,
+            reason="快速筛选: 满足所有硬性条件",
+            matched_criteria=matched,
+            unmatched_criteria=unmatched,
+        )
+
     return None
 
 
