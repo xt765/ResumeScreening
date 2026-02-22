@@ -162,16 +162,18 @@ async def get_statistics(
     logger.info("获取统计数据")
 
     try:
-        # 获取总数
-        total_result = await session.execute(select(func.count()).select_from(TalentInfo))
+        total_result = await session.execute(
+            select(func.count().label("count")).select_from(TalentInfo).where(TalentInfo.is_deleted == False)
+        )
         total_talents = total_result.scalar() or 0
 
-        # 按筛选状态统计
         screening_stats = await session.execute(
             select(
                 TalentInfo.screening_status,
                 func.count().label("count"),
-            ).group_by(TalentInfo.screening_status)
+            )
+            .where(TalentInfo.is_deleted == False)
+            .group_by(TalentInfo.screening_status)
         )
         by_screening_status: dict[str, int] = {}
         for row in screening_stats:
@@ -179,12 +181,13 @@ async def get_statistics(
             count_val = getattr(row, "count", 0)
             by_screening_status[key] = int(count_val)
 
-        # 按工作流状态统计
         workflow_stats = await session.execute(
             select(
                 TalentInfo.workflow_status,
                 func.count().label("count"),
-            ).group_by(TalentInfo.workflow_status)
+            )
+            .where(TalentInfo.is_deleted == False)
+            .group_by(TalentInfo.workflow_status)
         )
         by_workflow_status: dict[str, int] = {}
         for row in workflow_stats:
@@ -192,12 +195,13 @@ async def get_statistics(
             count_val = getattr(row, "count", 0)
             by_workflow_status[key] = int(count_val)
 
-        # 近 7 天新增
         from datetime import datetime, timedelta
 
         seven_days_ago = datetime.now() - timedelta(days=7)
         recent_result = await session.execute(
-            select(func.count().label("count")).where(TalentInfo.created_at >= seven_days_ago)
+            select(func.count().label("count"))
+            .select_from(TalentInfo)
+            .where(TalentInfo.is_deleted == False, TalentInfo.created_at >= seven_days_ago)
         )
         recent_7_days = recent_result.scalar() or 0
 
