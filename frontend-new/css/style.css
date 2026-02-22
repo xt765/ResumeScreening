@@ -2003,6 +2003,10 @@ select.form-control {
     color: var(--text-muted);
 }
 
+.login-form .input-wrapper:has(.password-toggle) .form-input {
+    padding-right: 44px;
+}
+
 .password-toggle {
     position: absolute;
     right: 14px;
