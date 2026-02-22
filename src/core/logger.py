@@ -147,6 +147,42 @@ def console_format(record: "Record") -> str:
     return format_str + "\n"
 
 
+def sanitize_message(message: str) -> str:
+    """清理消息中的特殊字符。
+
+    移除或替换可能导致终端显示问题的字符。
+
+    Args:
+        message: 原始消息
+
+    Returns:
+        str: 清理后的消息
+    """
+    import re
+
+    message = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", message)
+    message = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", message)
+    message = message.replace("\r\n", " ").replace("\r", " ").replace("\n", " ")
+    message = re.sub(r"\s+", " ", message)
+
+    return message.strip()
+
+
+def console_format_safe(record: "Record") -> str:
+    """安全的控制台日志格式化。
+
+    清理消息中的特殊字符后再格式化。
+
+    Args:
+        record: loguru 日志记录
+
+    Returns:
+        str: 格式化的日志字符串
+    """
+    record["message"] = sanitize_message(str(record["message"]))
+    return console_format(record)
+
+
 def setup_logger() -> None:
     """配置 loguru 日志系统。
 
@@ -159,7 +195,7 @@ def setup_logger() -> None:
 
     logger.add(
         sink=sys.stdout,
-        format=console_format,
+        format=console_format_safe,
         level=settings.app.log_level,
         colorize=True,
         enqueue=True,
