@@ -7,18 +7,18 @@
 - 完整异常堆栈追踪
 """
 
-from datetime import datetime
 import json
+from datetime import datetime
 from pathlib import Path
 import sys
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TextIO
 
 from loguru import logger
 
 from src.core.config import get_settings
 
 if TYPE_CHECKING:
-    from loguru import Record
+    from loguru import Record, Message
 
 
 def json_serializer(obj: Any) -> Any:
@@ -41,8 +41,8 @@ def json_serializer(obj: Any) -> Any:
     return str(obj)
 
 
-def json_format(record: "Record") -> str:
-    """格式化日志记录为 JSON 格式。
+def format_json_record(record: "Record") -> str:
+    """格式化日志记录为 JSON 字符串。
 
     Args:
         record: loguru 日志记录
@@ -61,11 +61,9 @@ def json_format(record: "Record") -> str:
         "thread_id": record["thread"].id,
     }
 
-    # 添加额外上下文信息
     if record.get("extra"):
         log_data["extra"] = record["extra"]
 
-    # 添加异常信息
     if record["exception"]:
         log_data["exception"] = {
             "type": record["exception"].type.__name__ if record["exception"].type else None,
@@ -73,7 +71,43 @@ def json_format(record: "Record") -> str:
             "traceback": record["exception"].traceback if record["exception"].traceback else None,
         }
 
-    return json.dumps(log_data, ensure_ascii=False, default=json_serializer) + "\n"
+    return json.dumps(log_data, ensure_ascii=False, default=json_serializer)
+
+
+class JsonFileSink:
+    """JSON 文件日志 sink。
+
+    自定义 sink 类，避免 loguru 格式字符串问题。
+    """
+
+    def __init__(self, file_path: Path):
+        """初始化 sink。
+
+        Args:
+            file_path: 日志文件路径
+        """
+        self.file_path = file_path
+        self._file: TextIO | None = None
+
+    def write(self, message: "Message") -> None:
+        """写入日志消息。
+
+        Args:
+            message: loguru 日志消息
+        """
+        if self._file is None:
+            self.file_path.parent.mkdir(parents=True, exist_ok=True)
+            self._file = open(self.file_path, "a", encoding="utf-8")
+
+        json_str = format_json_record(message.record)
+        self._file.write(json_str + "\n")
+        self._file.flush()
+
+    def stop(self) -> None:
+        """停止 sink，关闭文件。"""
+        if self._file:
+            self._file.close()
+            self._file = None
 
 
 def console_format(record: "Record") -> str:
@@ -87,7 +121,6 @@ def console_format(record: "Record") -> str:
     Returns:
         格式化的日志字符串
     """
-    # 定义颜色映射
     level_colors = {
         "TRACE": "<dim>",
         "DEBUG": "<cyan>",
@@ -101,7 +134,6 @@ def console_format(record: "Record") -> str:
     color = level_colors.get(record["level"].name, "")
     end_color = "</>" * color.count("<") if color else ""
 
-    # 构建格式化字符串
     time_str = "<cyan>{time:YYYY-MM-DD HH:mm:ss}</cyan>"
     level_str = f"{color}{{level:8}}{end_color}"
     module_str = "<blue>{module}:{function}:{line}</blue>"
@@ -109,7 +141,6 @@ def console_format(record: "Record") -> str:
 
     format_str = f"{time_str} | {level_str} | {module_str} - {message_str}"
 
-    # 添加异常信息
     if record["exception"]:
         format_str += "\n{exception}"
 
@@ -124,10 +155,8 @@ def setup_logger() -> None:
     """
     settings = get_settings()
 
-    # 移除默认处理器
     logger.remove()
 
-    # 添加控制台处理器（彩色格式）
     logger.add(
         sink=sys.stdout,
         format=console_format,
@@ -136,36 +165,22 @@ def setup_logger() -> None:
         enqueue=True,
     )
 
-    # 确保日志目录存在
     log_dir = Path(settings.app.log_dir)
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    # 添加文件处理器（JSON 格式，按日轮转）
-    log_file = log_dir / "app_{time:YYYY-MM-DD}.jsonl"
+    today = datetime.now().strftime("%Y-%m-%d")
+    log_file = log_dir / f"app_{today}.jsonl"
     logger.add(
-        sink=str(log_file),
-        format=json_format,
+        sink=JsonFileSink(log_file),
         level=settings.app.log_level,
-        rotation="00:00",  # 每天午夜轮转
-        retention="30 days",  # 保留 30 天
-        compression="gz",  # 压缩旧日志
-        encoding="utf-8",
         enqueue=True,
-        serialize=False,
     )
 
-    # 添加错误日志单独文件
-    error_log_file = log_dir / "error_{time:YYYY-MM-DD}.jsonl"
+    error_log_file = log_dir / f"error_{today}.jsonl"
     logger.add(
-        sink=str(error_log_file),
-        format=json_format,
+        sink=JsonFileSink(error_log_file),
         level="ERROR",
-        rotation="00:00",
-        retention="30 days",
-        compression="gz",
-        encoding="utf-8",
         enqueue=True,
-        serialize=False,
     )
 
     logger.info("日志系统初始化完成", log_dir=str(log_dir))
@@ -179,7 +194,6 @@ def get_logger():
     Returns:
         loguru Logger 实例
     """
-    # 检查是否已有处理器，没有则初始化
-    if not logger._core.handlers:  # type: ignore
+    if not logger._core.handlers:
         setup_logger()
     return logger
