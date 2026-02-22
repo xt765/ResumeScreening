@@ -6,7 +6,7 @@
 const DashboardPage = {
     statistics: null,
     dataLoadedAt: null,
-    CACHE_DURATION: 5 * 60 * 1000,
+    CACHE_DURATION: 30 * 1000,
 
     async render() {
         this.loadDataAsync();
@@ -39,6 +39,10 @@ const DashboardPage = {
         if (statsContainer && this.statistics) {
             statsContainer.outerHTML = this.renderStats();
         }
+    },
+
+    clearCache() {
+        this.dataLoadedAt = null;
     },
 
     renderContent() {

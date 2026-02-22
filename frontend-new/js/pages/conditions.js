@@ -58,6 +58,10 @@ const ConditionsPage = {
         }
     },
 
+    clearCache() {
+        this.dataLoadedAt = null;
+    },
+
     /**
      * 渲染页面内容
      */

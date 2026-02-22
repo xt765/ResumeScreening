@@ -57,6 +57,10 @@ const TalentsPage = {
         }
     },
 
+    clearCache() {
+        this.dataLoadedAt = null;
+    },
+
     /**
      * 加载筛选条件列表
      */

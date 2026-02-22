@@ -98,10 +98,14 @@ const Router = {
 
         try {
             if (PageConfig[page] && PageConfig[page].render) {
+                const pageModule = window[page.charAt(0).toUpperCase() + page.slice(1) + 'Page'];
+                if (pageModule && typeof pageModule.clearCache === 'function') {
+                    pageModule.clearCache();
+                }
+                
                 const content = await PageConfig[page].render();
                 container.innerHTML = content;
                 
-                const pageModule = window[page.charAt(0).toUpperCase() + page.slice(1) + 'Page'];
                 if (pageModule && typeof pageModule.initEvents === 'function') {
                     pageModule.initEvents();
                 }
