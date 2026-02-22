@@ -677,7 +677,8 @@ async def list_talents(
         conditions = [
             TalentInfo.workflow_status.in_(
                 [WorkflowStatusEnum.COMPLETED, WorkflowStatusEnum.STORING]
-            )
+            ),
+            TalentInfo.is_deleted == False,  # noqa: E712
         ]
 
         if name:
@@ -1024,6 +1025,138 @@ async def batch_vectorize(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"批量向量化失败: {e}",
+        ) from None
+
+
+@router.delete(
+    "/{talent_id}",
+    response_model=APIResponse[dict[str, Any]],
+    summary="逻辑删除人才",
+    description="将指定人才标记为已删除（逻辑删除）",
+)
+async def delete_talent(
+    talent_id: str,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> APIResponse[dict[str, Any]]:
+    """逻辑删除人才。
+
+    Args:
+        talent_id: 人才 ID
+        session: 数据库会话
+
+    Returns:
+        APIResponse[dict[str, Any]]: 删除结果响应
+
+    Raises:
+        HTTPException: 人才不存在或删除失败
+    """
+    logger.info(f"逻辑删除人才: id={talent_id}")
+
+    try:
+        # 查询人才
+        query = select(TalentInfo).where(TalentInfo.id == talent_id)
+        result = await session.execute(query)
+        talent = result.scalar_one_or_none()
+
+        if not talent:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"人才不存在: {talent_id}",
+            )
+
+        if talent.is_deleted:
+            return APIResponse(
+                success=True,
+                message="人才已被删除",
+                data={"id": talent_id, "is_deleted": True},
+            )
+
+        # 执行逻辑删除
+        talent.is_deleted = True
+        await session.commit()
+
+        logger.success(f"逻辑删除成功: id={talent_id}")
+
+        return APIResponse(
+            success=True,
+            message="删除成功",
+            data={"id": talent_id, "is_deleted": True},
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"删除人才失败: {e}")
+        await session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"删除人才失败: {e}",
+        ) from None
+
+
+@router.post(
+    "/{talent_id}/restore",
+    response_model=APIResponse[dict[str, Any]],
+    summary="恢复已删除的人才",
+    description="将已删除的人才恢复",
+)
+async def restore_talent(
+    talent_id: str,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> APIResponse[dict[str, Any]]:
+    """恢复已删除的人才。
+
+    Args:
+        talent_id: 人才 ID
+        session: 数据库会话
+
+    Returns:
+        APIResponse[dict[str, Any]]: 恢复结果响应
+
+    Raises:
+        HTTPException: 人才不存在或恢复失败
+    """
+    logger.info(f"恢复人才: id={talent_id}")
+
+    try:
+        # 查询人才
+        query = select(TalentInfo).where(TalentInfo.id == talent_id)
+        result = await session.execute(query)
+        talent = result.scalar_one_or_none()
+
+        if not talent:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"人才不存在: {talent_id}",
+            )
+
+        if not talent.is_deleted:
+            return APIResponse(
+                success=True,
+                message="人才未被删除，无需恢复",
+                data={"id": talent_id, "is_deleted": False},
+            )
+
+        # 执行恢复
+        talent.is_deleted = False
+        await session.commit()
+
+        logger.success(f"恢复人才成功: id={talent_id}")
+
+        return APIResponse(
+            success=True,
+            message="恢复成功",
+            data={"id": talent_id, "is_deleted": False},
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"恢复人才失败: {e}")
+        await session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"恢复人才失败: {e}",
         ) from None
 
 

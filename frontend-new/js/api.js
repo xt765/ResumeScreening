@@ -283,6 +283,22 @@ const talentsApi = {
     batchVectorize(screeningStatus = 'qualified', limit = 100) {
         return api.post(`/talents/batch-vectorize?screening_status=${screeningStatus}&limit=${limit}`);
     },
+
+    /**
+     * 删除人才（逻辑删除）
+     * @param {string} id - 人才 ID
+     */
+    delete(id) {
+        return api.delete(`/talents/${id}`);
+    },
+
+    /**
+     * 恢复已删除的人才
+     * @param {string} id - 人才 ID
+     */
+    restore(id) {
+        return api.post(`/talents/${id}/restore`);
+    },
 };
 
 /**

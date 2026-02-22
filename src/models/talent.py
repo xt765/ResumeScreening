@@ -219,6 +219,12 @@ class TalentInfo(Base, TimestampMixin):
         default="",
         comment="错误信息",
     )
+    is_deleted: Mapped[bool] = mapped_column(
+        Integer,
+        nullable=False,
+        default=False,
+        comment="是否已删除（逻辑删除）",
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
@@ -241,6 +247,7 @@ class TalentInfo(Base, TimestampMixin):
         Index("ix_talent_info_education_level", "education_level"),
         Index("ix_talent_info_screening_status", "screening_status"),
         Index("ix_talent_info_screening_date", "screening_date"),
+        Index("ix_talent_info_is_deleted", "is_deleted"),
         {"comment": "人才信息表"},
     )
 
@@ -276,6 +283,7 @@ class TalentInfo(Base, TimestampMixin):
             "workflow_status": self.workflow_status.value,
             "screening_status": (self.screening_status.value if self.screening_status else None),
             "screening_date": (self.screening_date.isoformat() if self.screening_date else None),
+            "is_deleted": self.is_deleted,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
