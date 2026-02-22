@@ -1103,9 +1103,17 @@ async def delete_talent(
                 data={"id": talent_id, "is_deleted": True},
             )
 
-        # 执行逻辑删除
         talent.is_deleted = True
         await session.commit()
+
+        try:
+            chroma_client.update_documents(
+                ids=[talent_id],
+                metadatas=[{"is_deleted": True}],
+            )
+            logger.info(f"ChromaDB同步删除成功: id={talent_id}")
+        except Exception as e:
+            logger.warning(f"ChromaDB同步失败（不影响主流程）: {e}")
 
         logger.success(f"逻辑删除成功: id={talent_id}")
 
@@ -1169,9 +1177,21 @@ async def restore_talent(
                 data={"id": talent_id, "is_deleted": False},
             )
 
-        # 执行恢复
         talent.is_deleted = False
         await session.commit()
+
+        try:
+            existing = chroma_client.get_documents(ids=[talent_id])
+            if existing.get("ids"):
+                chroma_client.update_documents(
+                    ids=[talent_id],
+                    metadatas=[{"is_deleted": False}],
+                )
+                logger.info(f"ChromaDB同步恢复成功: id={talent_id}")
+            else:
+                logger.warning(f"向量不存在，需要重新向量化: id={talent_id}")
+        except Exception as e:
+            logger.warning(f"ChromaDB同步失败（不影响主流程）: {e}")
 
         logger.success(f"恢复人才成功: id={talent_id}")
 
@@ -1302,22 +1322,32 @@ async def batch_delete_talents(
         result = await session.execute(select(TalentInfo).where(TalentInfo.id.in_(request.ids)))
         talents = result.scalars().all()
 
-        deleted_count = 0
+        deleted_ids = []
         for talent in talents:
             if not talent.is_deleted:
                 talent.is_deleted = True
-                deleted_count += 1
+                deleted_ids.append(talent.id)
 
         await session.commit()
 
-        logger.success(f"批量删除成功: deleted_count={deleted_count}")
+        if deleted_ids:
+            try:
+                chroma_client.update_documents(
+                    ids=deleted_ids,
+                    metadatas=[{"is_deleted": True}] * len(deleted_ids),
+                )
+                logger.info(f"ChromaDB批量同步删除成功: count={len(deleted_ids)}")
+            except Exception as e:
+                logger.warning(f"ChromaDB批量同步失败（不影响主流程）: {e}")
+
+        logger.success(f"批量删除成功: deleted_count={len(deleted_ids)}")
 
         return APIResponse(
             success=True,
-            message=f"成功删除 {deleted_count} 条记录",
+            message=f"成功删除 {len(deleted_ids)} 条记录",
             data={
                 "total": len(request.ids),
-                "deleted": deleted_count,
+                "deleted": len(deleted_ids),
             },
         )
 

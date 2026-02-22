@@ -148,6 +148,21 @@ const analysisApi = {
             filters,
         });
     },
+
+    /**
+     * RAG 智能查询（带统计分析）
+     * @param {string} query - 查询文本
+     * @param {number} topK - 返回结果数量
+     * @param {Object} filters - 过滤条件
+     * @returns {Promise<Object>} 包含分析结论、来源和统计数据的响应
+     */
+    queryWithAnalytics(query, topK = 10, filters = null) {
+        return api.post('/analysis/query-with-analytics', {
+            query,
+            top_k: topK,
+            filters,
+        });
+    },
 };
 
 /**

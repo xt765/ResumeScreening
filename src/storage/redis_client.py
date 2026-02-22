@@ -269,6 +269,130 @@ class RedisClient:
         except RedisError as e:
             logger.exception(f"关闭 Redis 连接失败: {e}")
 
+    async def rpush(self, key: str, value: str) -> int:
+        """向列表右侧添加元素。
+
+        Args:
+            key: 列表键名。
+            value: 要添加的值。
+
+        Returns:
+            int: 列表长度。
+
+        Raises:
+            RedisError: Redis 操作错误。
+        """
+        try:
+            result = await self.client.rpush(key, value)
+            logger.debug(f"RPUSH 成功: key={key}")
+            return result
+        except RedisError as e:
+            logger.exception(f"RPUSH 失败: key={key}, 错误: {e}")
+            raise
+
+    async def lpop(self, key: str) -> str | None:
+        """从列表左侧弹出元素。
+
+        Args:
+            key: 列表键名。
+
+        Returns:
+            str | None: 弹出的值，列表为空返回 None。
+
+        Raises:
+            RedisError: Redis 操作错误。
+        """
+        try:
+            result = await self.client.lpop(key)
+            logger.debug(f"LPOP 成功: key={key}")
+            return result
+        except RedisError as e:
+            logger.exception(f"LPOP 失败: key={key}, 错误: {e}")
+            raise
+
+    async def lrange(self, key: str, start: int, stop: int) -> list[str]:
+        """获取列表范围内的元素。
+
+        Args:
+            key: 列表键名。
+            start: 起始索引。
+            stop: 结束索引（-1 表示最后一个元素）。
+
+        Returns:
+            list[str]: 元素列表。
+
+        Raises:
+            RedisError: Redis 操作错误。
+        """
+        try:
+            result = await self.client.lrange(key, start, stop)
+            logger.debug(f"LRANGE 成功: key={key}, start={start}, stop={stop}")
+            return result
+        except RedisError as e:
+            logger.exception(f"LRANGE 失败: key={key}, 错误: {e}")
+            raise
+
+    async def llen(self, key: str) -> int:
+        """获取列表长度。
+
+        Args:
+            key: 列表键名。
+
+        Returns:
+            int: 列表长度。
+
+        Raises:
+            RedisError: Redis 操作错误。
+        """
+        try:
+            result = await self.client.llen(key)
+            logger.debug(f"LLEN 成功: key={key}, len={result}")
+            return result
+        except RedisError as e:
+            logger.exception(f"LLEN 失败: key={key}, 错误: {e}")
+            raise
+
+    async def expire(self, key: str, seconds: int) -> bool:
+        """设置键的过期时间。
+
+        Args:
+            key: 键名。
+            seconds: 过期时间（秒）。
+
+        Returns:
+            bool: 设置成功返回 True。
+
+        Raises:
+            RedisError: Redis 操作错误。
+        """
+        try:
+            result = await self.client.expire(key, seconds)
+            logger.debug(f"EXPIRE 成功: key={key}, seconds={seconds}")
+            return result
+        except RedisError as e:
+            logger.exception(f"EXPIRE 失败: key={key}, 错误: {e}")
+            raise
+
+    async def keys(self, pattern: str) -> list[str]:
+        """查找匹配模式的所有键。
+
+        Args:
+            pattern: 匹配模式（如 "task:*"）。
+
+        Returns:
+            list[str]: 匹配的键列表。
+
+        Raises:
+            RedisError: Redis 操作错误。
+        """
+        try:
+            result = await self.client.keys(pattern)
+            logger.debug(f"KEYS 成功: pattern={pattern}, count={len(result)}")
+            return result
+        except RedisError as e:
+            logger.exception(f"KEYS 失败: pattern={pattern}, 错误: {e}")
+            raise
+
 
 # 创建全局单例实例
 redis_client = RedisClient()

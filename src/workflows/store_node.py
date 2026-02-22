@@ -91,7 +91,7 @@ def _store_to_chromadb(
         return False
 
     try:
-        # 构建元数据
+        is_qualified = candidate_info.get("is_qualified", False)
         metadata = {
             "name": candidate_info.get("name", ""),
             "school": candidate_info.get("school", ""),
@@ -100,6 +100,8 @@ def _store_to_chromadb(
             "work_years": candidate_info.get("work_years", 0),
             "skills": ",".join(candidate_info.get("skills", [])),
             "created_at": datetime.now().isoformat(),
+            "is_deleted": False,
+            "screening_status": "qualified" if is_qualified else "unqualified",
         }
 
         # 添加到 ChromaDB

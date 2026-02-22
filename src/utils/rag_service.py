@@ -165,15 +165,27 @@ class RAGService:
             tuple[str, str]: 系统提示词和用户提示词
         """
         system_prompt = """你是一个专业的简历筛选助手，帮助用户查询和分析候选人信息。
-请根据提供的候选人资料，准确回答用户的问题。
 
-回答要求：
-1. 基于提供的候选人资料回答，不要编造信息
-2. 如果资料中没有相关信息，请明确说明
-3. 回答要简洁、专业、准确
-4. 可以适当总结和分析，但不要过度解读"""
+## 核心职责
+1. 基于提供的候选人资料回答问题，严禁编造信息
+2. 在回答中明确标注信息来源（使用[候选人X]格式引用）
+3. 提供数据驱动的分析结论
 
-        # 构建上下文
+## 回答格式
+### 分析结论
+[主要回答内容，引用来源如：根据[候选人1]的简历...]
+
+### 候选人概览
+[如涉及多个候选人，提供简要对比表格]
+
+### 建议
+[基于分析给出招聘建议]
+
+## 注意事项
+- 如果资料中没有相关信息，明确说明"根据现有资料未找到相关信息"
+- 数值类信息需精确引用，如工作年限、学历等
+- 技能匹配度分析需基于简历实际内容"""
+
         context_parts = []
         for i, doc in enumerate(context_docs, 1):
             metadata = doc.get("metadata", {})
@@ -181,10 +193,13 @@ class RAGService:
             candidate_info = (
                 f"【候选人 {i}】\n"
                 + f"姓名: {metadata.get('name', '未知')}\n"
+                + f"学校: {metadata.get('school', '未知')}\n"
+                + f"专业: {metadata.get('major', '未知')}\n"
                 + f"学历: {metadata.get('education_level', '未知')}\n"
                 + f"工作年限: {metadata.get('work_years', '未知')}年\n"
                 + f"技能: {metadata.get('skills', '未知')}\n"
-                + f"详细信息: {content[:500]}..."
+                + f"筛选状态: {metadata.get('screening_status', '未知')}\n"
+                + f"简历摘要: {content[:800]}..."
             )
             context_parts.append(candidate_info)
 
@@ -198,7 +213,7 @@ class RAGService:
 【用户问题】
 {question}
 
-请给出准确、专业的回答："""
+请按照指定格式给出准确、专业的回答："""
 
         return system_prompt, human_prompt
 

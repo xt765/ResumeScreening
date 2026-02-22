@@ -102,6 +102,7 @@ class ChromaClient:
             collection = self.client.get_or_create_collection(
                 name=name,
                 metadata=metadata,
+                embedding_function=None,
             )
             logger.info(f"获取/创建集合成功: {name}")
             return collection

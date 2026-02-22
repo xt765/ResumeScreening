@@ -4,9 +4,8 @@
 支持批量文本处理和单个查询向量化。
 """
 
-from langchain_openai import OpenAIEmbeddings
+import httpx
 from loguru import logger
-from pydantic import SecretStr
 
 from src.core.config import get_settings
 from src.core.exceptions import LLMException
@@ -16,40 +15,43 @@ class EmbeddingService:
     """Embedding 服务类。
 
     封装 DashScope Embedding API 调用，提供文本向量化功能。
-    使用 OpenAI 兼容模式调用 DashScope API。
 
     Attributes:
-        embeddings: LangChain OpenAIEmbeddings 实例
         model: 使用的 Embedding 模型名称
+        api_key: DashScope API 密钥
+        base_url: API 基础 URL
     """
 
     def __init__(self) -> None:
         """初始化 Embedding 服务。
 
-        从配置中读取 DashScope API 配置，创建 Embeddings 客户端。
+        从配置中读取 DashScope API 配置。
         """
         settings = get_settings()
 
         self._model = settings.dashscope.embedding_model
         self._api_key = settings.dashscope.api_key
-        self._base_url = settings.dashscope.base_url
+        self._base_url = settings.dashscope.base_url.rstrip("/")
         self._timeout = settings.app.llm_timeout
 
         if not self._api_key:
             logger.warning("DashScope API Key 未配置，Embedding 服务将不可用")
 
-        self.embeddings: OpenAIEmbeddings | None = None
-        self._initialized = False
+    async def _call_embedding_api(
+        self,
+        texts: list[str],
+    ) -> list[list[float]]:
+        """调用 DashScope Embedding API。
 
-    def _ensure_initialized(self) -> None:
-        """确保 Embeddings 客户端已初始化。
+        Args:
+            texts: 文本列表
+
+        Returns:
+            向量列表
 
         Raises:
-            LLMException: API Key 未配置
+            LLMException: API 调用失败
         """
-        if self._initialized:
-            return
-
         if not self._api_key:
             raise LLMException(
                 message="DashScope API Key 未配置",
@@ -57,13 +59,47 @@ class EmbeddingService:
                 model=self._model,
             )
 
-        self.embeddings = OpenAIEmbeddings(
-            api_key=SecretStr(self._api_key),
-            base_url=self._base_url,
-            model=self._model,
-        )
-        self._initialized = True
-        logger.info(f"Embedding 服务初始化完成: model={self._model}")
+        url = f"{self._base_url}/embeddings"
+        headers = {
+            "Authorization": f"Bearer {self._api_key}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": self._model,
+            "input": texts,
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                response = await client.post(url, json=payload, headers=headers)
+                response.raise_for_status()
+                data = response.json()
+
+            vectors = [item["embedding"] for item in data["data"]]
+            return vectors
+
+        except httpx.HTTPStatusError as e:
+            error_detail = ""
+            try:
+                error_body = e.response.json()
+                error_detail = str(error_body)
+            except Exception:
+                error_detail = e.response.text
+
+            logger.error(f"DashScope Embedding API 错误: {error_detail}")
+            raise LLMException(
+                message=f"Embedding API 调用失败: {error_detail}",
+                provider="dashscope",
+                model=self._model,
+                details={"status_code": e.response.status_code, "error": error_detail},
+            ) from e
+        except Exception as e:
+            logger.exception(f"Embedding API 调用异常: {e}")
+            raise LLMException(
+                message=f"Embedding API 调用异常: {e}",
+                provider="dashscope",
+                model=self._model,
+            ) from e
 
     async def embed_texts(self, texts: list[str]) -> list[list[float]]:
         """批量文本向量化。
@@ -79,8 +115,6 @@ class EmbeddingService:
         Raises:
             LLMException: Embedding 调用失败
         """
-        self._ensure_initialized()
-
         if not texts:
             logger.warning("文本列表为空，返回空向量列表")
             return []
@@ -88,17 +122,16 @@ class EmbeddingService:
         try:
             logger.info(f"开始批量向量化: text_count={len(texts)}")
 
-            if self.embeddings is None:
-                raise LLMException(
-                    message="Embeddings 客户端未初始化",
-                    provider="dashscope",
-                    model=self._model,
-                )
+            batch_size = 20
+            all_vectors: list[list[float]] = []
 
-            vectors = await self.embeddings.aembed_documents(texts)
+            for i in range(0, len(texts), batch_size):
+                batch = texts[i : i + batch_size]
+                vectors = await self._call_embedding_api(batch)
+                all_vectors.extend(vectors)
 
-            logger.info(f"批量向量化完成: vector_count={len(vectors)}")
-            return vectors
+            logger.info(f"批量向量化完成: vector_count={len(all_vectors)}")
+            return all_vectors
 
         except LLMException:
             raise
@@ -125,8 +158,6 @@ class EmbeddingService:
         Raises:
             LLMException: Embedding 调用失败
         """
-        self._ensure_initialized()
-
         if not query:
             logger.warning("查询文本为空")
             return []
@@ -134,17 +165,10 @@ class EmbeddingService:
         try:
             logger.debug(f"开始查询向量化: query_length={len(query)}")
 
-            if self.embeddings is None:
-                raise LLMException(
-                    message="Embeddings 客户端未初始化",
-                    provider="dashscope",
-                    model=self._model,
-                )
+            vectors = await self._call_embedding_api([query])
 
-            vector = await self.embeddings.aembed_query(query)
-
-            logger.debug(f"查询向量化完成: vector_dim={len(vector)}")
-            return vector
+            logger.debug(f"查询向量化完成: vector_dim={len(vectors[0])}")
+            return vectors[0]
 
         except LLMException:
             raise
@@ -194,7 +218,6 @@ class EmbeddingService:
         return 1024
 
 
-# 单例实例
 _embedding_service: EmbeddingService | None = None
 
 

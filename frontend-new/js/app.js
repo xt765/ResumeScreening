@@ -18,23 +18,39 @@ const AppState = {
 const PageConfig = {
     dashboard: {
         title: '系统概览',
+        subtitle: '查看系统整体运行状态和关键指标',
+        icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
         render: () => DashboardPage.render(),
     },
     conditions: {
         title: '筛选条件',
+        subtitle: '创建和管理简历筛选条件',
+        icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>',
         render: () => ConditionsPage.render(),
     },
     upload: {
         title: '简历上传',
+        subtitle: '上传简历文件进行智能筛选',
+        icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
         render: () => UploadPage.render(),
     },
     talents: {
         title: '人才信息',
+        subtitle: '搜索和查看通过筛选的人才信息',
+        icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
         render: () => TalentsPage.render(),
     },
     analysis: {
         title: '数据分析',
+        subtitle: 'RAG 智能查询和统计分析',
+        icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
         render: () => AnalysisPage.render(),
+    },
+    monitor: {
+        title: '系统监控',
+        subtitle: '实时监控系统运行状态和日志信息',
+        icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>',
+        render: () => MonitorPage.render(),
     },
 };
 
@@ -73,6 +89,16 @@ const Router = {
         const pageTitle = document.getElementById('pageTitle');
         if (pageTitle && PageConfig[page]) {
             pageTitle.textContent = PageConfig[page].title;
+        }
+        
+        const pageSubtitle = document.getElementById('pageSubtitle');
+        if (pageSubtitle && PageConfig[page]) {
+            pageSubtitle.textContent = PageConfig[page].subtitle || '';
+        }
+        
+        const pageIcon = document.getElementById('pageIcon');
+        if (pageIcon && PageConfig[page] && PageConfig[page].icon) {
+            pageIcon.innerHTML = PageConfig[page].icon;
         }
         
         if (PageConfig[page]) {
@@ -488,6 +514,16 @@ function initApp() {
             }
         });
     });
+
+    // 绑定刷新按钮事件
+    const refreshBtn = document.getElementById('refreshBtn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+            // 重新渲染当前页面
+            Router.renderPage(AppState.currentPage);
+            UI.toast('数据已刷新', 'success');
+        });
+    }
 
     console.log('简历智能筛选系统已初始化');
 }

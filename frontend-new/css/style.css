@@ -175,16 +175,22 @@ body {
 .system-status {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     font-size: 13px;
+    color: rgba(255, 255, 255, 0.8);
 }
 
 .status-dot {
+    flex-shrink: 0;
     width: 8px;
     height: 8px;
     background-color: var(--success-color);
     border-radius: 50%;
     animation: pulse 2s infinite;
+}
+
+.status-text {
+    white-space: nowrap;
 }
 
 @keyframes pulse {
@@ -210,30 +216,37 @@ body {
 
 /* 顶部栏 */
 .topbar {
-    height: 60px;
     background-color: var(--bg-primary);
     border-bottom: 1px solid var(--border-color);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 24px;
     position: sticky;
     top: 0;
     z-index: 50;
+    box-shadow: var(--shadow-sm);
+}
+
+.topbar-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 32px;
+    height: 72px;
 }
 
 .topbar-left {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 20px;
 }
 
 .menu-toggle {
     display: none;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
     background: none;
     border: none;
     cursor: pointer;
-    padding: 8px;
     border-radius: var(--radius-md);
     color: var(--text-secondary);
     transition: all var(--transition-fast);
@@ -241,36 +254,78 @@ body {
 
 .menu-toggle:hover {
     background-color: var(--bg-tertiary);
-    color: var(--text-primary);
+    color: var(--primary-color);
 }
 
-.page-title {
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--text-primary);
+.page-header {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }
 
-.topbar-right {
+.page-title-row {
     display: flex;
     align-items: center;
     gap: 12px;
+    margin-top: 2px;
 }
 
-.topbar-btn {
+.page-icon {
     display: flex;
     align-items: center;
     justify-content: center;
     width: 36px;
     height: 36px;
+    background: linear-gradient(135deg, var(--primary-color), #5b8def);
+    border-radius: var(--radius-md);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(51, 112, 255, 0.25);
+}
+
+.page-header .page-title {
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+}
+
+.page-header .page-subtitle {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin: 0;
+    line-height: 1.4;
+    padding-left: 48px;
+}
+
+.topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.topbar-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
     border-radius: var(--radius-md);
     color: var(--text-secondary);
     text-decoration: none;
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-primary);
+    cursor: pointer;
     transition: all var(--transition-fast);
 }
 
-.topbar-btn:hover {
-    background-color: var(--bg-tertiary);
+.topbar-action-btn:hover {
+    background-color: var(--primary-bg);
+    border-color: var(--primary-color);
     color: var(--primary-color);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(51, 112, 255, 0.15);
 }
 
 /* 页面容器 */
@@ -1136,6 +1191,30 @@ select.form-control {
         display: flex;
     }
     
+    .topbar-content {
+        padding: 0 20px;
+        height: 64px;
+    }
+    
+    .page-header .page-title {
+        font-size: 18px;
+    }
+    
+    .page-header .page-subtitle {
+        font-size: 13px;
+        padding-left: 44px;
+    }
+    
+    .page-icon {
+        width: 32px;
+        height: 32px;
+    }
+    
+    .page-icon svg {
+        width: 18px;
+        height: 18px;
+    }
+    
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);
     }
@@ -1150,6 +1229,20 @@ select.form-control {
 }
 
 @media (max-width: 768px) {
+    .topbar-content {
+        padding: 0 16px;
+        height: 60px;
+    }
+    
+    .page-header .page-subtitle {
+        display: none;
+    }
+    
+    .topbar-action-btn {
+        width: 36px;
+        height: 36px;
+    }
+    
     .stats-grid {
         grid-template-columns: 1fr;
     }
