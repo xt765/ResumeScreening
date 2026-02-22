@@ -186,6 +186,14 @@ const conditionsApi = {
     delete(id) {
         return api.delete(`/conditions/${id}`);
     },
+
+    /**
+     * 解析自然语言描述
+     * @param {string} text - 自然语言描述
+     */
+    parseNaturalLanguage(text) {
+        return api.post('/conditions/parse-natural-language', { text });
+    },
 };
 
 /**

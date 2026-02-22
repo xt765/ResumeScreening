@@ -472,3 +472,37 @@ class ConditionQuery(BaseModel):
             except ValueError as err:
                 raise ValueError("page_size 必须是有效的整数") from err
         return v
+
+
+class NLParseRequest(BaseModel):
+    """自然语言解析请求模型。
+
+    用于将自然语言描述转换为结构化筛选条件。
+
+    Attributes:
+        text: 自然语言描述文本。
+    """
+
+    text: str = Field(
+        ...,
+        min_length=5,
+        max_length=500,
+        description="自然语言描述文本",
+        examples=["需要本科及以上学历，3年以上工作经验，掌握 Python 和 Java"],
+    )
+
+
+class NLParseResponse(BaseModel):
+    """自然语言解析响应模型。
+
+    返回解析后的结构化筛选条件。
+
+    Attributes:
+        name: 条件名称。
+        description: 条件描述。
+        config: 条件配置。
+    """
+
+    name: str = Field(..., description="条件名称")
+    description: str | None = Field(default=None, description="条件描述")
+    config: ConditionConfig = Field(..., description="条件配置")

@@ -76,13 +76,22 @@ const ConditionsPage = {
                         </svg>
                         <input type="text" id="searchInput" placeholder="搜索条件名称..." value="${this.searchKeyword}">
                     </div>
-                    <button class="btn btn-primary" id="createBtn">
-                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="12" y1="5" x2="12" y2="19"/>
-                            <line x1="5" y1="12" x2="19" y2="12"/>
-                        </svg>
-                        新增条件
-                    </button>
+                    <div class="toolbar-buttons">
+                        <button class="btn btn-secondary" id="smartCreateBtn">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/>
+                                <path d="M12 6v6l4 2"/>
+                            </svg>
+                            智能创建
+                        </button>
+                        <button class="btn btn-primary" id="createBtn">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"/>
+                                <line x1="5" y1="12" x2="19" y2="12"/>
+                            </svg>
+                            新增条件
+                        </button>
+                    </div>
                 </div>
 
                 <div class="card">
@@ -207,6 +216,12 @@ const ConditionsPage = {
             });
         }
 
+        // 智能创建按钮事件
+        const smartCreateBtn = document.getElementById('smartCreateBtn');
+        if (smartCreateBtn) {
+            smartCreateBtn.addEventListener('click', () => this.showNLPInputModal());
+        }
+
         // 新增按钮事件
         const createBtn = document.getElementById('createBtn');
         if (createBtn) {
@@ -252,6 +267,121 @@ const ConditionsPage = {
         UI.showModal('新增筛选条件', content, footer, 'lg');
 
         // 绑定提交事件
+        setTimeout(() => {
+            const submitBtn = document.getElementById('submitCondition');
+            if (submitBtn) {
+                submitBtn.addEventListener('click', () => this.submitCreate());
+            }
+            this.initTagsInput();
+        }, 100);
+    },
+
+    /**
+     * 显示自然语言输入模态框
+     */
+    showNLPInputModal() {
+        const content = `
+            <div class="nlp-input-container">
+                <p class="nlp-hint">请用自然语言描述您的筛选需求，AI 将自动解析并生成筛选条件。</p>
+                <textarea class="form-control nlp-textarea" id="nlpInput" rows="5" 
+                          placeholder="例如：需要本科及以上学历，3年以上工作经验，掌握 Python 和 Java，最好是 985 院校毕业的候选人"></textarea>
+                <div class="nlp-examples">
+                    <p class="example-title">示例：</p>
+                    <ul>
+                        <li>需要硕士学历，5年以上工作经验，会 Python 和机器学习</li>
+                        <li>本科毕业，最好是 211 学校，会 Java 开发</li>
+                        <li>博士学历，有深度学习经验，发表过论文</li>
+                    </ul>
+                </div>
+            </div>
+        `;
+
+        const footer = `
+            <button class="btn btn-secondary" onclick="UI.closeModal()">取消</button>
+            <button class="btn btn-primary" id="parseNLPBtn">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/>
+                    <path d="M12 6v6l4 2"/>
+                </svg>
+                解析并生成
+            </button>
+        `;
+
+        UI.showModal('智能创建筛选条件', content, footer, 'md');
+
+        setTimeout(() => {
+            const parseBtn = document.getElementById('parseNLPBtn');
+            if (parseBtn) {
+                parseBtn.addEventListener('click', () => this.parseNaturalLanguage());
+            }
+        }, 100);
+    },
+
+    /**
+     * 解析自然语言
+     */
+    async parseNaturalLanguage() {
+        const input = document.getElementById('nlpInput');
+        const text = input?.value.trim();
+
+        if (!text) {
+            UI.toast('请输入筛选条件描述', 'warning');
+            return;
+        }
+
+        if (text.length < 5) {
+            UI.toast('描述内容太短，请提供更多信息', 'warning');
+            return;
+        }
+
+        try {
+            UI.showLoading();
+            const response = await conditionsApi.parseNaturalLanguage(text);
+
+            if (response.success) {
+                UI.closeModal();
+                this.showParsedFormModal(response.data);
+            }
+        } catch (error) {
+            console.error('解析失败:', error);
+            UI.toast(error.message || '解析失败，请重试', 'error');
+        } finally {
+            UI.hideLoading();
+        }
+    },
+
+    /**
+     * 显示解析后的可编辑表单
+     */
+    showParsedFormModal(parsedData) {
+        const condition = {
+            name: parsedData.name || '智能筛选条件',
+            description: parsedData.description || '',
+            is_active: true,
+            config: parsedData.config || {},
+        };
+
+        const content = `
+            <div class="parsed-result-header">
+                <span class="success-icon">✓</span>
+                <span>解析成功！您可以修改以下条件后保存：</span>
+            </div>
+            ${this.renderConditionForm(condition)}
+        `;
+
+        const footer = `
+            <button class="btn btn-secondary" onclick="ConditionsPage.showNLPInputModal()">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="19" y1="12" x2="5" y2="12"/>
+                    <polyline points="12 19 5 12 12 5"/>
+                </svg>
+                重新输入
+            </button>
+            <button class="btn btn-primary" id="submitCondition">确认保存</button>
+        `;
+
+        UI.showModal('智能创建筛选条件', content, footer, 'lg');
+
         setTimeout(() => {
             const submitBtn = document.getElementById('submitCondition');
             if (submitBtn) {
@@ -551,6 +681,11 @@ if (!document.getElementById('conditions-styles')) {
         gap: 16px;
     }
 
+    .toolbar-buttons {
+        display: flex;
+        gap: 12px;
+    }
+
     .condition-name {
         font-weight: 500;
         color: var(--text-primary);
@@ -569,6 +704,71 @@ if (!document.getElementById('conditions-styles')) {
         gap: 4px;
     }
 
+    .nlp-input-container {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .nlp-hint {
+        color: var(--text-secondary);
+        font-size: 14px;
+        margin: 0;
+    }
+
+    .nlp-textarea {
+        min-height: 120px;
+        resize: vertical;
+    }
+
+    .nlp-examples {
+        background-color: var(--bg-secondary);
+        border-radius: 8px;
+        padding: 12px 16px;
+    }
+
+    .nlp-examples .example-title {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-primary);
+        margin: 0 0 8px 0;
+    }
+
+    .nlp-examples ul {
+        margin: 0;
+        padding-left: 20px;
+    }
+
+    .nlp-examples li {
+        font-size: 13px;
+        color: var(--text-secondary);
+        margin-bottom: 4px;
+    }
+
+    .parsed-result-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 16px;
+        background-color: var(--success-bg);
+        border-radius: 8px;
+        margin-bottom: 20px;
+        color: var(--success-color);
+        font-weight: 500;
+    }
+
+    .parsed-result-header .success-icon {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background-color: var(--success-color);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+    }
+
     @media (max-width: 768px) {
         .conditions-page .page-toolbar {
             flex-direction: column;
@@ -577,6 +777,10 @@ if (!document.getElementById('conditions-styles')) {
 
         .conditions-page .search-box {
             max-width: none;
+        }
+
+        .toolbar-buttons {
+            flex-direction: column;
         }
     }
 `;

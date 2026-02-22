@@ -23,7 +23,10 @@ from src.schemas.condition import (
     ConditionCreate,
     ConditionResponse,
     ConditionUpdate,
+    NLParseRequest,
+    NLParseResponse,
 )
+from src.services.nlp_parser import nlp_parser
 
 router = APIRouter(prefix="/conditions", tags=["筛选条件管理"])
 
@@ -333,6 +336,55 @@ async def list_conditions(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"查询筛选条件失败: {e}",
+        ) from None
+
+
+@router.post(
+    "/parse-natural-language",
+    response_model=APIResponse[NLParseResponse],
+    summary="自然语言解析",
+    description="将自然语言描述转换为结构化筛选条件",
+)
+async def parse_natural_language(
+    data: NLParseRequest,
+) -> APIResponse[NLParseResponse]:
+    """解析自然语言描述。
+
+    使用 LLM 将用户的自然语言描述转换为结构化的筛选条件配置。
+
+    Args:
+        data: 解析请求数据
+
+    Returns:
+        APIResponse[NLParseResponse]: 包含解析结果的响应
+
+    Raises:
+        HTTPException: 解析失败时抛出
+    """
+    logger.info(f"解析自然语言: text={data.text[:50]}...")
+
+    try:
+        result = await nlp_parser.parse(data.text)
+
+        logger.success(f"自然语言解析成功: name={result.name}")
+
+        return APIResponse(
+            success=True,
+            message="解析成功",
+            data=result,
+        )
+
+    except ValueError as e:
+        logger.warning(f"自然语言解析失败: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from None
+    except Exception as e:
+        logger.exception(f"自然语言解析失败: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"解析失败: {e}",
         ) from None
 
 
