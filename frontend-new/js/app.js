@@ -61,6 +61,20 @@ const Router = {
             return;
         }
         
+        AppState.currentPage = page;
+        
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.classList.remove('active');
+            if (item.dataset.page === page) {
+                item.classList.add('active');
+            }
+        });
+
+        const pageTitle = document.getElementById('pageTitle');
+        if (pageTitle && PageConfig[page]) {
+            pageTitle.textContent = PageConfig[page].title;
+        }
+        
         if (PageConfig[page]) {
             this.renderPage(page);
         } else {
@@ -75,22 +89,6 @@ const Router = {
             return;
         }
         
-        AppState.currentPage = page;
-        
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.classList.remove('active');
-            if (item.dataset.page === page) {
-                item.classList.add('active');
-            }
-        });
-
-        const pageTitle = document.getElementById('pageTitle');
-        if (pageTitle && PageConfig[page]) {
-            pageTitle.textContent = PageConfig[page].title;
-        }
-
-        this.renderPage(page);
-
         window.location.hash = targetHash;
     },
 

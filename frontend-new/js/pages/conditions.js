@@ -231,12 +231,7 @@ const ConditionsPage = {
      * 刷新页面
      */
     async refresh() {
-        await this.loadConditions();
-        const container = document.getElementById('pageContainer');
-        if (container) {
-            container.innerHTML = this.renderContent();
-            this.initEvents();
-        }
+        await this.loadDataAsync();
     },
 
     /**
