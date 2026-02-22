@@ -36,19 +36,17 @@ class EducationLevel(StrEnum):
 class SchoolTier(StrEnum):
     """学校层次枚举。
 
-    定义学校等级分类。
+    定义学校等级分类（支持多选）。
 
     Attributes:
-        TOP: 顶尖院校（985/C9）。
-        KEY: 重点院校（211）。
-        ORDINARY: 普通院校。
-        OVERSEAS: 海外院校。
+        SCHOOLS_985_211: 985/211 院校。
+        OVERSEAS: 海外知名院校。
+        ORDINARY: 普通国内院校。
     """
 
-    TOP = "top"
-    KEY = "key"
-    ORDINARY = "ordinary"
+    SCHOOLS_985_211 = "985_211"
     OVERSEAS = "overseas"
+    ORDINARY = "ordinary"
 
 
 class LogicalOperator(StrEnum):
@@ -208,10 +206,10 @@ class ConditionConfig(BaseModel):
         description="专业要求列表",
         examples=[["计算机科学与技术", "软件工程"]],
     )
-    school_tier: SchoolTier | None = Field(
+    school_tier: list[SchoolTier] | None = Field(
         default=None,
-        description="学校层次要求",
-        examples=["key"],
+        description="学校层次要求（支持多选）",
+        examples=[["985_211"], ["985_211", "overseas"]],
     )
 
     # 扩展筛选字段
@@ -506,3 +504,42 @@ class NLParseResponse(BaseModel):
     name: str = Field(..., description="条件名称")
     description: str | None = Field(default=None, description="条件描述")
     config: ConditionConfig = Field(..., description="条件配置")
+
+
+class ConditionGroupRequest(BaseModel):
+    """条件组请求模型。
+
+    用于接收前端传递的条件组配置。
+
+    Attributes:
+        logic: 组内逻辑（and/or）。
+        condition_ids: 条件 ID 列表。
+    """
+
+    logic: str = Field(default="and", description="组内逻辑（and/or）")
+    condition_ids: list[str] = Field(default_factory=list, description="条件ID列表")
+
+
+class FilterConfigRequest(BaseModel):
+    """完整筛选配置请求模型。
+
+    用于接收前端传递的复杂筛选配置。
+
+    Attributes:
+        groups: 条件组列表。
+        group_logic: 组间逻辑（and/or）。
+        exclude_condition_ids: 排除条件 ID 列表。
+    """
+
+    groups: list[ConditionGroupRequest] = Field(
+        default_factory=list,
+        description="条件组列表",
+    )
+    group_logic: str = Field(
+        default="and",
+        description="组间逻辑（and/or）",
+    )
+    exclude_condition_ids: list[str] = Field(
+        default_factory=list,
+        description="排除条件ID列表",
+    )

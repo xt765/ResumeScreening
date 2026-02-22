@@ -63,6 +63,10 @@ class RedisClient:
             db=self._db,
             decode_responses=True,
             max_connections=10,
+            socket_timeout=5,
+            socket_connect_timeout=5,
+            health_check_interval=30,
+            retry_on_timeout=True,
         )
 
         self.client = Redis(connection_pool=self._pool)

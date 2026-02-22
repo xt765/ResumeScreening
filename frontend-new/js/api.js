@@ -260,16 +260,27 @@ const talentsApi = {
     /**
      * 批量上传简历
      * @param {FileList|File[]} files - 简历文件列表
-     * @param {string|null} conditionId - 筛选条件 ID
+     * @param {Object|string|null} filterConfig - 筛选配置对象或条件 ID
      */
-    async batchUpload(files, conditionId = null) {
+    async batchUpload(files, filterConfig = null) {
         const formData = new FormData();
         for (const file of files) {
             formData.append('files', file);
         }
         
-        const url = conditionId 
-            ? `/talents/batch-upload?condition_id=${conditionId}`
+        const params = new URLSearchParams();
+        if (filterConfig) {
+            if (typeof filterConfig === 'string') {
+                // 向后兼容：直接是 condition_id
+                params.append('condition_id', filterConfig);
+            } else {
+                // 新格式：完整筛选配置
+                params.append('filter_config', JSON.stringify(filterConfig));
+            }
+        }
+        
+        const url = params.toString() 
+            ? `/talents/batch-upload?${params.toString()}`
             : '/talents/batch-upload';
 
         return api.upload(url, formData);

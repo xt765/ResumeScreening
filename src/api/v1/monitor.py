@@ -184,14 +184,32 @@ async def get_system_health() -> APIResponse[SystemHealth]:
     Returns:
         APIResponse[SystemHealth]: 系统健康状态。
     """
+    import asyncio
+
     logger.debug("执行系统健康检查")
 
-    services = [
-        await check_mysql_status(),
-        await check_redis_status(),
-        await check_minio_status(),
-        await check_chroma_status(),
-    ]
+    async def safe_check(check_func, timeout: float) -> ServiceStatus:
+        try:
+            return await asyncio.wait_for(check_func(), timeout=timeout)
+        except asyncio.TimeoutError:
+            return ServiceStatus(
+                name=check_func.__name__.replace("check_", "").replace("_status", "").title(),
+                status="unhealthy",
+                message="检查超时",
+            )
+        except Exception as e:
+            return ServiceStatus(
+                name=check_func.__name__.replace("check_", "").replace("_status", "").title(),
+                status="unhealthy",
+                message=str(e)[:100],
+            )
+
+    services = await asyncio.gather(
+        safe_check(check_mysql_status, 5),
+        safe_check(check_redis_status, 3),
+        safe_check(check_minio_status, 5),
+        safe_check(check_chroma_status, 3),
+    )
 
     all_healthy = all(s.status == "healthy" for s in services)
     any_degraded = any(s.status == "degraded" for s in services)
