@@ -1,0 +1,499 @@
+/**
+ * 用户管理页面样式
+ */
+
+/* 用户管理页面容器 */
+.users-page {
+    min-height: calc(100vh - var(--header-height) - var(--footer-height));
+    padding: 24px;
+    background: var(--bg-light);
+}
+
+/* 工具栏样式 */
+.users-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    padding: 16px 20px;
+    background: var(--white);
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.toolbar-section {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.search-box {
+    position: relative;
+    width: 320px;
+}
+
+.search-box svg {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-light);
+    pointer-events: none;
+}
+
+.search-box input {
+    width: 100%;
+    padding: 10px 12px 10px 36px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.search-box input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.filter-group {
+    display: flex;
+    gap: 12px;
+}
+
+.form-select {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    background: var(--white);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 120px;
+}
+
+.form-select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* 表格容器 */
+.users-table-container {
+    background: var(--white);
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    margin-bottom: 24px;
+}
+
+/* 用户表格 */
+.users-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.users-table th,
+.users-table td {
+    padding: 16px 20px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+}
+
+.users-table th {
+    background: var(--bg-light);
+    font-weight: 600;
+    color: var(--text-dark);
+    white-space: nowrap;
+}
+
+.users-table tbody tr {
+    transition: all 0.2s ease;
+}
+
+.users-table tbody tr:hover {
+    background: rgba(59, 130, 246, 0.02);
+}
+
+.users-table tbody tr.system-admin-row {
+    background: rgba(139, 92, 246, 0.05);
+    border-left: 3px solid var(--purple-600);
+}
+
+.users-table tbody tr.inactive-row {
+    opacity: 0.6;
+}
+
+.users-table .text-right {
+    text-align: right;
+}
+
+/* 用户信息 */
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.user-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--primary-light);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.user-avatar.admin-avatar {
+    background: var(--purple-100);
+    color: var(--purple-600);
+}
+
+.user-details {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.username {
+    font-weight: 500;
+    color: var(--text-dark);
+}
+
+.system-admin-badge {
+    font-size: 12px;
+    color: var(--purple-600);
+    background: var(--purple-100);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+/* 角色徽章 */
+.role-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.role-admin {
+    background: var(--blue-100);
+    color: var(--blue-600);
+}
+
+.role-hr {
+    background: var(--green-100);
+    color: var(--green-600);
+}
+
+.role-viewer {
+    background: var(--gray-100);
+    color: var(--gray-600);
+}
+
+.role-default {
+    background: var(--gray-100);
+    color: var(--gray-600);
+}
+
+/* 状态徽章 */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.status-active {
+    background: var(--green-100);
+    color: var(--green-600);
+}
+
+.status-inactive {
+    background: var(--red-100);
+    color: var(--red-600);
+}
+
+/* 操作按钮 */
+.action-buttons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.action-btn {
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 6px;
+    background: var(--bg-light);
+    color: var(--text-dark);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+    background: var(--primary-light);
+    color: var(--primary);
+}
+
+.action-btn.danger:hover {
+    background: var(--red-100);
+    color: var(--red-600);
+}
+
+.action-btn.success:hover {
+    background: var(--green-100);
+    color: var(--green-600);
+}
+
+.action-btn.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.action-btn.disabled:hover {
+    background: var(--bg-light);
+    color: var(--text-dark);
+}
+
+/* 空状态 */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    background: var(--white);
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
+}
+
+.empty-icon {
+    margin-bottom: 16px;
+    color: var(--text-light);
+}
+
+.empty-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-dark);
+    margin-bottom: 8px;
+}
+
+.empty-description {
+    color: var(--text-light);
+    font-size: 14px;
+}
+
+/* 分页 */
+.users-pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.pagination-info {
+    font-size: 14px;
+    color: var(--text-light);
+}
+
+/* 表单样式 */
+.form-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.form-row {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.form-group {
+    flex: 1;
+    min-width: 200px;
+}
+
+.form-label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 500;
+    color: var(--text-dark);
+    font-size: 14px;
+}
+
+.form-label.required::after {
+    content: '*';
+    color: var(--red-500);
+    margin-left: 4px;
+}
+
+.form-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-input:disabled {
+    background: var(--bg-light);
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.form-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.form-checkbox input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.checkbox-label {
+    font-size: 14px;
+    color: var(--text-dark);
+}
+
+.form-error {
+    color: var(--red-500);
+    font-size: 12px;
+    margin-top: 4px;
+    display: none;
+}
+
+.form-hint {
+    font-size: 12px;
+    color: var(--text-light);
+    padding: 8px 12px;
+    background: var(--bg-light);
+    border-radius: 6px;
+    border-left: 3px solid var(--primary);
+}
+
+.form-hint-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    background: var(--blue-50);
+    border-radius: 8px;
+    border-left: 3px solid var(--blue-500);
+}
+
+.form-hint-box svg {
+    color: var(--blue-500);
+}
+
+.form-hint-box span {
+    font-size: 14px;
+    color: var(--blue-700);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .users-page {
+        padding: 16px;
+    }
+    
+    .users-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+    
+    .toolbar-section {
+        justify-content: space-between;
+    }
+    
+    .search-box {
+        width: 100%;
+    }
+    
+    .filter-group {
+        flex: 1;
+    }
+    
+    .form-row {
+        flex-direction: column;
+    }
+    
+    .users-table th,
+    .users-table td {
+        padding: 12px 16px;
+        font-size: 13px;
+    }
+    
+    .users-table .text-right {
+        text-align: left;
+    }
+    
+    .action-buttons {
+        justify-content: flex-start;
+    }
+    
+    .users-pagination {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .pagination-info {
+        text-align: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .user-info {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .user-avatar {
+        width: 32px;
+        height: 32px;
+        font-size: 12px;
+    }
+    
+    .action-buttons {
+        flex-wrap: wrap;
+    }
+    
+    .action-btn {
+        width: 28px;
+        height: 28px;
+    }
+    
+    .action-btn svg {
+        width: 14px;
+        height: 14px;
+    }
+}

@@ -82,7 +82,7 @@ const LoginPage = {
                     </form>
                     
                     <div class="login-footer">
-                        <p>© 2024 简历智能筛选系统</p>
+                        <p>© 2026 简历智能筛选系统</p>
                     </div>
                 </div>
             </div>

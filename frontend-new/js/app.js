@@ -13,6 +13,61 @@ const AppState = {
 };
 
 /**
+ * 脚本动态加载器
+ */
+const ScriptLoader = {
+    loadedScripts: new Set(),
+    loadingScripts: new Map(),
+
+    /**
+     * 动态加载脚本
+     * @param {string} src - 脚本路径
+     * @returns {Promise<void>}
+     */
+    loadScript(src) {
+        if (this.loadedScripts.has(src)) {
+            return Promise.resolve();
+        }
+
+        if (this.loadingScripts.has(src)) {
+            return this.loadingScripts.get(src);
+        }
+
+        const promise = new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = src;
+            script.async = true;
+            
+            script.onload = () => {
+                this.loadedScripts.add(src);
+                this.loadingScripts.delete(src);
+                resolve();
+            };
+            
+            script.onerror = () => {
+                this.loadingScripts.delete(src);
+                reject(new Error(`Failed to load script: ${src}`));
+            };
+            
+            document.head.appendChild(script);
+        });
+
+        this.loadingScripts.set(src, promise);
+        return promise;
+    },
+
+    /**
+     * 批量加载脚本
+     * @param {string[]} scripts - 脚本路径数组
+     * @returns {Promise<void>}
+     */
+    async loadScripts(scripts) {
+        if (!scripts || scripts.length === 0) return;
+        await Promise.all(scripts.map(src => this.loadScript(src)));
+    },
+};
+
+/**
  * 页面配置
  */
 const PageConfig = {
@@ -23,6 +78,7 @@ const PageConfig = {
         render: () => LoginPage.render(),
         requireAuth: false,
         hideLayout: true,
+        scripts: [],
     },
     dashboard: {
         title: '系统概览',
@@ -30,6 +86,7 @@ const PageConfig = {
         icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
         render: () => DashboardPage.render(),
         requireAuth: false,
+        scripts: ['js/pages/dashboard.js'],
     },
     conditions: {
         title: '筛选条件',
@@ -37,6 +94,7 @@ const PageConfig = {
         icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>',
         render: () => ConditionsPage.render(),
         requireAuth: false,
+        scripts: ['js/pages/conditions.js'],
     },
     upload: {
         title: '简历上传',
@@ -44,6 +102,7 @@ const PageConfig = {
         icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
         render: () => UploadPage.render(),
         requireAuth: false,
+        scripts: ['js/pages/upload.js'],
     },
     talents: {
         title: '人才信息',
@@ -51,6 +110,7 @@ const PageConfig = {
         icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
         render: () => TalentsPage.render(),
         requireAuth: false,
+        scripts: ['js/pages/talents.js'],
     },
     analysis: {
         title: '数据分析',
@@ -58,6 +118,7 @@ const PageConfig = {
         icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
         render: () => AnalysisPage.render(),
         requireAuth: false,
+        scripts: ['js/echarts.min.js', 'js/pages/analysis.js'],
     },
     monitor: {
         title: '系统监控',
@@ -65,6 +126,7 @@ const PageConfig = {
         icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>',
         render: () => MonitorPage.render(),
         requireAuth: false,
+        scripts: ['js/pages/monitor.js'],
     },
     users: {
         title: '用户管理',
@@ -73,6 +135,7 @@ const PageConfig = {
         render: () => UsersPage.render(),
         requireAuth: true,
         requireRole: 'admin',
+        scripts: ['js/pages/users.js'],
     },
 };
 
@@ -103,9 +166,11 @@ const Router = {
         
         if (pageConfig?.hideLayout) {
             document.querySelector('.app-container').style.display = 'none';
+            document.getElementById('loginContainer').style.display = 'block';
             document.body.classList.add('login-page');
         } else {
             document.querySelector('.app-container').style.display = 'flex';
+            document.getElementById('loginContainer').style.display = 'none';
             document.body.classList.remove('login-page');
         }
         
@@ -151,22 +216,33 @@ const Router = {
     },
 
     async renderPage(page) {
-        const container = document.getElementById('pageContainer');
+        const pageConfig = PageConfig[page];
+        if (!pageConfig || !pageConfig.render) {
+            console.error('页面配置不存在:', page);
+            return;
+        }
+
+        const container = pageConfig.hideLayout 
+            ? document.getElementById('loginContainer')
+            : document.getElementById('pageContainer');
+        
         if (!container) return;
 
         try {
-            if (PageConfig[page] && PageConfig[page].render) {
-                const pageModule = window[page.charAt(0).toUpperCase() + page.slice(1) + 'Page'];
-                if (pageModule && typeof pageModule.clearCache === 'function') {
-                    pageModule.clearCache();
-                }
-                
-                const content = await PageConfig[page].render();
-                container.innerHTML = content;
-                
-                if (pageModule && typeof pageModule.initEvents === 'function') {
-                    pageModule.initEvents();
-                }
+            if (pageConfig.scripts && pageConfig.scripts.length > 0) {
+                await ScriptLoader.loadScripts(pageConfig.scripts);
+            }
+
+            const pageModule = window[page.charAt(0).toUpperCase() + page.slice(1) + 'Page'];
+            if (pageModule && typeof pageModule.clearCache === 'function') {
+                pageModule.clearCache();
+            }
+            
+            const content = await pageConfig.render();
+            container.innerHTML = content;
+            
+            if (pageModule && typeof pageModule.initEvents === 'function') {
+                pageModule.initEvents();
             }
         } catch (error) {
             console.error('页面渲染错误:', error);
@@ -798,3 +874,4 @@ document.addEventListener('DOMContentLoaded', initApp);
 window.AppState = AppState;
 window.Router = Router;
 window.UI = UI;
+window.UserArea = UserArea;

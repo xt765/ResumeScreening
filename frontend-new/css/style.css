@@ -565,6 +565,499 @@ body {
     font-size: 13px;
 }
 
+/* ========================================
+   用户管理页面样式
+======================================== */
+.users-page {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* 统计卡片区域 */
+.users-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+}
+
+/* 工具栏 */
+.users-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 20px;
+    background-color: var(--bg-primary);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+}
+
+.users-toolbar .toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+}
+
+.users-toolbar .toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.filter-select {
+    min-width: 120px;
+    padding: 8px 32px 8px 12px;
+    font-size: 13px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+}
+
+.filter-select:hover {
+    border-color: var(--primary-color);
+}
+
+.filter-select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px var(--primary-bg);
+}
+
+/* 用户卡片网格 */
+.users-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+}
+
+/* 用户卡片 */
+.user-card {
+    background-color: var(--bg-primary);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    transition: all var(--transition-fast);
+}
+
+.user-card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+}
+
+.user-card.disabled {
+    opacity: 0.7;
+}
+
+.user-card.disabled .user-avatar {
+    opacity: 0.5;
+}
+
+/* 系统管理员卡片特殊样式 */
+.user-card.system-admin {
+    border-color: var(--warning-color);
+    background: linear-gradient(135deg, var(--bg-primary) 0%, rgba(245, 158, 11, 0.05) 100%);
+}
+
+.user-card.system-admin:hover {
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15);
+}
+
+/* 卡片头部 */
+.user-card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.user-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-color), #5b8def);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    flex-shrink: 0;
+}
+
+.user-avatar.admin-avatar {
+    background: linear-gradient(135deg, #f59e0b, #fbbf24);
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+.user-basic-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.user-name-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.user-username {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.user-nickname {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+
+/* 系统管理员徽章 */
+.system-admin-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 500;
+    color: #b45309;
+    background-color: rgba(245, 158, 11, 0.15);
+    border-radius: 100px;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+/* 状态指示器 */
+.user-status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.user-status-indicator .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+
+.user-status-indicator.active {
+    background-color: var(--success-bg);
+    color: var(--success-color);
+}
+
+.user-status-indicator.active .status-dot {
+    background-color: var(--success-color);
+}
+
+.user-status-indicator.inactive {
+    background-color: var(--danger-bg);
+    color: var(--danger-color);
+}
+
+.user-status-indicator.inactive .status-dot {
+    background-color: var(--danger-color);
+}
+
+/* 卡片内容区 */
+.user-card-body {
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.user-info-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.user-info-item svg {
+    flex-shrink: 0;
+    color: var(--text-muted);
+}
+
+.user-email {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 卡片底部 */
+.user-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background-color: var(--bg-secondary);
+    border-top: 1px solid var(--border-light);
+}
+
+/* 角色徽章 */
+.user-role-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: var(--radius-md);
+}
+
+.user-role-badge.role-admin {
+    background-color: var(--primary-bg);
+    color: var(--primary-color);
+}
+
+.user-role-badge.role-hr {
+    background-color: var(--info-bg);
+    color: var(--info-color);
+}
+
+.user-role-badge.role-viewer {
+    background-color: var(--bg-tertiary);
+    color: var(--text-secondary);
+}
+
+/* 操作按钮组 */
+.user-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: var(--radius-md);
+    background-color: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.action-btn:hover:not(:disabled) {
+    background-color: var(--bg-tertiary);
+    color: var(--primary-color);
+}
+
+.action-btn.danger:hover:not(:disabled) {
+    background-color: var(--danger-bg);
+    color: var(--danger-color);
+}
+
+.action-btn.success:hover:not(:disabled) {
+    background-color: var(--success-bg);
+    color: var(--success-color);
+}
+
+.action-btn:disabled,
+.action-btn.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* 空状态 */
+.users-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    background-color: var(--bg-primary);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+}
+
+.users-empty .empty-icon {
+    color: var(--text-muted);
+    margin-bottom: 16px;
+}
+
+.users-empty .empty-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.users-empty .empty-description {
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+/* 分页区域 */
+.users-pagination {
+    display: flex;
+    justify-content: center;
+    padding-top: 8px;
+}
+
+/* 用户表单样式 */
+.user-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+}
+
+.form-hint-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background-color: var(--info-bg);
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.form-hint-box svg {
+    color: var(--info-color);
+    flex-shrink: 0;
+}
+
+.form-hint-box strong {
+    color: var(--text-primary);
+}
+
+.form-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+}
+
+.form-checkbox input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--primary-color);
+}
+
+.form-checkbox .checkbox-label {
+    font-size: 14px;
+    color: var(--text-primary);
+}
+
+.form-checkbox input:disabled + .checkbox-label {
+    color: var(--text-muted);
+    cursor: not-allowed;
+}
+
+/* 响应式设计 - 用户管理页面 */
+@media (max-width: 1200px) {
+    .users-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .users-grid {
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .users-stats {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+    
+    .users-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+    
+    .users-toolbar .toolbar-left {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .users-toolbar .search-box {
+        max-width: none;
+    }
+    
+    .filter-group {
+        flex-wrap: wrap;
+    }
+    
+    .filter-select {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .users-toolbar .toolbar-right {
+        justify-content: flex-end;
+    }
+    
+    .users-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .user-card-header {
+        flex-wrap: wrap;
+    }
+    
+    .user-status-indicator {
+        order: 3;
+        width: 100%;
+        justify-content: flex-start;
+        margin-top: 8px;
+    }
+}
+
+@media (max-width: 480px) {
+    .users-stats {
+        grid-template-columns: 1fr;
+    }
+    
+    .user-card-footer {
+        flex-direction: column;
+        gap: 12px;
+        align-items: stretch;
+    }
+    
+    .user-role-badge {
+        justify-content: center;
+    }
+    
+    .user-actions {
+        justify-content: center;
+    }
+}
+
 .btn-lg {
     padding: 12px 24px;
     font-size: 16px;

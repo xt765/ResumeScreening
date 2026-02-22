@@ -26,6 +26,20 @@ from src.schemas.user import (
 
 router = APIRouter(prefix="/users", tags=["用户管理"])
 
+SYSTEM_ADMIN_USERNAME = "xt765"
+
+
+def is_system_admin(user: User) -> bool:
+    """检查用户是否为系统管理员。
+
+    Args:
+        user: 用户对象
+
+    Returns:
+        bool: 是否为系统管理员
+    """
+    return user.username == SYSTEM_ADMIN_USERNAME
+
 
 @router.post(
     "",
@@ -206,7 +220,7 @@ async def update_user(
         APIResponse[UserResponse]: 更新后的用户信息
 
     Raises:
-        HTTPException: 用户不存在
+        HTTPException: 用户不存在或系统管理员不允许修改
     """
     logger.info(f"更新用户: user_id={user_id}")
 
@@ -218,6 +232,18 @@ async def update_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="用户不存在",
         )
+
+    if is_system_admin(user):
+        if data.is_active is not None and not data.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="系统管理员账号不允许禁用",
+            )
+        if data.role is not None and data.role != RoleEnum.ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="系统管理员角色不允许修改",
+            )
 
     if data.nickname is not None:
         user.nickname = data.nickname
@@ -282,7 +308,7 @@ async def delete_user(
         APIResponse[None]: 操作结果
 
     Raises:
-        HTTPException: 用户不存在或不能禁用自己
+        HTTPException: 用户不存在、不能禁用自己或系统管理员
     """
     logger.info(f"禁用用户: user_id={user_id}")
 
@@ -299,6 +325,12 @@ async def delete_user(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="用户不存在",
+        )
+
+    if is_system_admin(user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="系统管理员账号不允许禁用",
         )
 
     user.is_active = False

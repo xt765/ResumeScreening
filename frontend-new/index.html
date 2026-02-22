@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>简历智能筛选系统</title>
     <link rel="stylesheet" href="css/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+    <link rel="stylesheet" href="css/users.css">
 </head>
 <body>
     <div class="app-container">
@@ -68,6 +68,15 @@
                         <path d="M9 21V9"/>
                     </svg>
                     <span>系统监控</span>
+                </a>
+                <a href="#/users" class="nav-item" data-page="users">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                    <span>用户管理</span>
                 </a>
             </nav>
             <div class="sidebar-footer">
@@ -168,6 +177,9 @@
         </main>
     </div>
 
+    <!-- 登录页面容器（独立于 app-container） -->
+    <div id="loginContainer" style="display: none;"></div>
+
     <!-- 模态框容器 -->
     <div class="modal-overlay" id="modalOverlay">
         <div class="modal" id="modal">
@@ -195,12 +207,6 @@
     <!-- JavaScript 文件 -->
     <script src="js/api.js"></script>
     <script src="js/pages/login.js"></script>
-    <script src="js/pages/dashboard.js"></script>
-    <script src="js/pages/conditions.js"></script>
-    <script src="js/pages/upload.js"></script>
-    <script src="js/pages/talents.js"></script>
-    <script src="js/pages/analysis.js"></script>
-    <script src="js/pages/monitor.js"></script>
     <script src="js/pages/users.js"></script>
     <script src="js/app.js"></script>
 </body>
