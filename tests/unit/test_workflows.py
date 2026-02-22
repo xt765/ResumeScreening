@@ -3061,7 +3061,7 @@ class TestStoreNodeFullFlow:
     """StoreNode 完整执行流程测试类。"""
 
     @pytest.mark.asyncio
-    @patch("src.workflows.store_node.async_session_factory")
+    @patch("src.models.async_session_factory")
     @patch("src.workflows.store_node._upload_images_to_minio")
     @patch("src.workflows.store_node._save_to_mysql")
     @patch("src.workflows.store_node._store_to_chromadb")
@@ -3113,7 +3113,7 @@ class TestStoreNodeFullFlow:
         mock_store_chroma.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("src.workflows.store_node.async_session_factory")
+    @patch("src.models.async_session_factory")
     @patch("src.workflows.store_node._save_to_mysql")
     async def test_store_node_without_images(
         self,
@@ -3149,7 +3149,7 @@ class TestStoreNodeFullFlow:
         assert result["photo_urls"] == []
 
     @pytest.mark.asyncio
-    @patch("src.workflows.store_node.async_session_factory")
+    @patch("src.models.async_session_factory")
     @patch("src.workflows.store_node._save_to_mysql")
     async def test_store_node_without_text_content(
         self,
@@ -3206,7 +3206,7 @@ class TestStoreNodeErrorHandling:
         assert "候选人信息为空" in exc_info.value.message
 
     @pytest.mark.asyncio
-    @patch("src.workflows.store_node.async_session_factory", None)
+    @patch("src.models.async_session_factory", None)
     async def test_store_node_no_session_factory(self) -> None:
         """测试数据库未初始化时抛出异常。
 
@@ -3226,7 +3226,7 @@ class TestStoreNodeErrorHandling:
         assert "数据库未初始化" in exc_info.value.message
 
     @pytest.mark.asyncio
-    @patch("src.workflows.store_node.async_session_factory")
+    @patch("src.models.async_session_factory")
     @patch("src.workflows.store_node._save_to_mysql")
     async def test_store_node_database_exception(
         self,
@@ -3261,7 +3261,7 @@ class TestStoreNodeErrorHandling:
             await store_node(state)
 
     @pytest.mark.asyncio
-    @patch("src.workflows.store_node.async_session_factory")
+    @patch("src.models.async_session_factory")
     @patch("src.workflows.store_node._save_to_mysql")
     async def test_store_node_storage_exception(
         self,
@@ -3298,7 +3298,7 @@ class TestStoreNodeErrorHandling:
                 await store_node(state)
 
     @pytest.mark.asyncio
-    @patch("src.workflows.store_node.async_session_factory")
+    @patch("src.models.async_session_factory")
     async def test_store_node_unexpected_exception(
         self,
         mock_session_factory: MagicMock,

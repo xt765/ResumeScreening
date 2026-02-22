@@ -16,6 +16,7 @@ from loguru import logger
 
 from src.core.config import get_settings
 from src.core.exceptions import LLMException, ParseException
+from src.utils.face_detector import filter_avatar_images
 from src.workflows.state import CandidateInfo, ParseResult, ResumeState
 
 
@@ -91,6 +92,10 @@ def _parse_pdf(file_path: str) -> ParseResult:
         full_text = "\n\n".join(text_parts)
         doc.close()
 
+        # 过滤头像图片：如果有多张图片，使用人脸检测保留最像头像的一张
+        if len(images) > 1:
+            images = filter_avatar_images(images)
+
         logger.info(f"PDF 解析完成: pages={page_count}, chars={len(full_text)}, images={len(images)}")
 
         return ParseResult(
@@ -150,6 +155,10 @@ def _parse_docx(file_path: str) -> ParseResult:
                     logger.debug(f"提取 DOCX 图片: size={len(image_data)} bytes")
 
         full_text = "\n\n".join(text_parts)
+
+        # 过滤头像图片：如果有多张图片，使用人脸检测保留最像头像的一张
+        if len(images) > 1:
+            images = filter_avatar_images(images)
 
         logger.info(
             f"DOCX 解析完成: paragraphs={len(doc.paragraphs)}, "

@@ -273,7 +273,7 @@ async def list_talents(
 
     try:
         # 构建查询条件
-        conditions = [TalentInfo.workflow_status == WorkflowStatusEnum.COMPLETED]
+        conditions = [TalentInfo.workflow_status.in_([WorkflowStatusEnum.COMPLETED, WorkflowStatusEnum.STORING])]
 
         if name:
             conditions.append(TalentInfo.name.ilike(f"%{name}%"))

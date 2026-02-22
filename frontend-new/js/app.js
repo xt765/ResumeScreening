@@ -105,6 +105,12 @@ const Router = {
             if (PageConfig[page] && PageConfig[page].render) {
                 const content = await PageConfig[page].render();
                 container.innerHTML = content;
+                
+                // 初始化页面事件
+                const pageModule = window[page.charAt(0).toUpperCase() + page.slice(1) + 'Page'];
+                if (pageModule && typeof pageModule.initEvents === 'function') {
+                    pageModule.initEvents();
+                }
             }
         } catch (error) {
             console.error('页面渲染错误:', error);
