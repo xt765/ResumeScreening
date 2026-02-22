@@ -1,0 +1,264 @@
+/**
+ * API 封装模块
+ * 提供与后端 FastAPI 的通信接口
+ */
+
+const API_BASE_URL = 'http://localhost:8000/api/v1';
+
+/**
+ * API 请求封装类
+ */
+class ApiClient {
+    constructor(baseUrl) {
+        this.baseUrl = baseUrl;
+    }
+
+    /**
+     * 发送 HTTP 请求
+     * @param {string} endpoint - API 端点
+     * @param {Object} options - 请求选项
+     * @returns {Promise<Object>} 响应数据
+     */
+    async request(endpoint, options = {}) {
+        const url = `${this.baseUrl}${endpoint}`;
+        const config = {
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers,
+            },
+            ...options,
+        };
+
+        // 如果有 body 且是对象，转换为 JSON
+        if (config.body && typeof config.body === 'object' && !(config.body instanceof FormData)) {
+            config.body = JSON.stringify(config.body);
+        }
+
+        // FormData 不需要设置 Content-Type
+        if (config.body instanceof FormData) {
+            delete config.headers['Content-Type'];
+        }
+
+        try {
+            const response = await fetch(url, config);
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new ApiError(data.message || '请求失败', response.status, data);
+            }
+
+            return data;
+        } catch (error) {
+            if (error instanceof ApiError) {
+                throw error;
+            }
+            throw new ApiError(error.message || '网络错误', 0, null);
+        }
+    }
+
+    /**
+     * GET 请求
+     */
+    async get(endpoint, params = {}) {
+        const searchParams = new URLSearchParams();
+        Object.entries(params).forEach(([key, value]) => {
+            if (value !== null && value !== undefined && value !== '') {
+                searchParams.append(key, value);
+            }
+        });
+        const query = searchParams.toString();
+        const url = query ? `${endpoint}?${query}` : endpoint;
+        return this.request(url, { method: 'GET' });
+    }
+
+    /**
+     * POST 请求
+     */
+    async post(endpoint, data = {}) {
+        return this.request(endpoint, {
+            method: 'POST',
+            body: data,
+        });
+    }
+
+    /**
+     * PUT 请求
+     */
+    async put(endpoint, data = {}) {
+        return this.request(endpoint, {
+            method: 'PUT',
+            body: data,
+        });
+    }
+
+    /**
+     * DELETE 请求
+     */
+    async delete(endpoint) {
+        return this.request(endpoint, { method: 'DELETE' });
+    }
+
+    /**
+     * 上传文件
+     */
+    async upload(endpoint, formData) {
+        return this.request(endpoint, {
+            method: 'POST',
+            body: formData,
+        });
+    }
+}
+
+/**
+ * API 错误类
+ */
+class ApiError extends Error {
+    constructor(message, status, data) {
+        super(message);
+        this.name = 'ApiError';
+        this.status = status;
+        this.data = data;
+    }
+}
+
+// 创建 API 客户端实例
+const api = new ApiClient(API_BASE_URL);
+
+/**
+ * 统计分析 API
+ */
+const analysisApi = {
+    /**
+     * 获取统计数据
+     */
+    getStatistics() {
+        return api.get('/analysis/statistics');
+    },
+
+    /**
+     * RAG 智能查询
+     * @param {string} query - 查询文本
+     * @param {number} topK - 返回结果数量
+     * @param {Object} filters - 过滤条件
+     */
+    query(query, topK = 5, filters = null) {
+        return api.post('/analysis/query', {
+            query,
+            top_k: topK,
+            filters,
+        });
+    },
+};
+
+/**
+ * 筛选条件 API
+ */
+const conditionsApi = {
+    /**
+     * 获取筛选条件列表
+     * @param {Object} params - 查询参数
+     */
+    getList(params = {}) {
+        return api.get('/conditions', params);
+    },
+
+    /**
+     * 创建筛选条件
+     * @param {Object} data - 条件数据
+     */
+    create(data) {
+        return api.post('/conditions', data);
+    },
+
+    /**
+     * 更新筛选条件
+     * @param {string} id - 条件 ID
+     * @param {Object} data - 更新数据
+     */
+    update(id, data) {
+        return api.put(`/conditions/${id}`, data);
+    },
+
+    /**
+     * 删除筛选条件
+     * @param {string} id - 条件 ID
+     */
+    delete(id) {
+        return api.delete(`/conditions/${id}`);
+    },
+};
+
+/**
+ * 人才管理 API
+ */
+const talentsApi = {
+    /**
+     * 获取人才列表
+     * @param {Object} params - 查询参数
+     */
+    getList(params = {}) {
+        return api.get('/talents', params);
+    },
+
+    /**
+     * 获取人才详情
+     * @param {string} id - 人才 ID
+     */
+    getDetail(id) {
+        return api.get(`/talents/${id}`);
+    },
+
+    /**
+     * 上传简历并筛选
+     * @param {File} file - 简历文件
+     * @param {string|null} conditionId - 筛选条件 ID
+     * @param {Function} onProgress - 进度回调
+     */
+    async uploadAndScreen(file, conditionId = null, onProgress = null) {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const url = conditionId 
+            ? `/talents/upload-screen?condition_id=${conditionId}`
+            : '/talents/upload-screen';
+
+        return api.upload(url, formData);
+    },
+
+    /**
+     * 向量化人才
+     * @param {string} id - 人才 ID
+     */
+    vectorize(id) {
+        return api.post(`/talents/${id}/vectorize`);
+    },
+
+    /**
+     * 批量向量化
+     * @param {string} screeningStatus - 筛选状态
+     * @param {number} limit - 数量限制
+     */
+    batchVectorize(screeningStatus = 'qualified', limit = 100) {
+        return api.post(`/talents/batch-vectorize?screening_status=${screeningStatus}&limit=${limit}`);
+    },
+};
+
+/**
+ * 健康检查 API
+ */
+const healthApi = {
+    /**
+     * 检查系统健康状态
+     */
+    check() {
+        return fetch('http://localhost:8000/health').then(res => res.json());
+    },
+};
+
+// 导出 API 模块
+window.api = api;
+window.ApiError = ApiError;
+window.analysisApi = analysisApi;
+window.conditionsApi = conditionsApi;
+window.talentsApi = talentsApi;
+window.healthApi = healthApi;

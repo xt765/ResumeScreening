@@ -1,0 +1,499 @@
+/**
+ * 主应用模块
+ * 提供路由、全局状态、UI 组件管理
+ */
+
+/**
+ * 应用状态管理
+ */
+const AppState = {
+    currentPage: 'dashboard',
+    sidebarCollapsed: false,
+    loading: false,
+};
+
+/**
+ * 页面配置
+ */
+const PageConfig = {
+    dashboard: {
+        title: '系统概览',
+        render: () => DashboardPage.render(),
+    },
+    conditions: {
+        title: '筛选条件',
+        render: () => ConditionsPage.render(),
+    },
+    upload: {
+        title: '简历上传',
+        render: () => UploadPage.render(),
+    },
+    talents: {
+        title: '人才信息',
+        render: () => TalentsPage.render(),
+    },
+    analysis: {
+        title: '数据分析',
+        render: () => AnalysisPage.render(),
+    },
+};
+
+/**
+ * 路由管理
+ */
+const Router = {
+    /**
+     * 初始化路由
+     */
+    init() {
+        window.addEventListener('hashchange', () => this.handleRouteChange());
+        this.handleRouteChange();
+    },
+
+    /**
+     * 处理路由变化
+     */
+    handleRouteChange() {
+        const hash = window.location.hash.slice(1) || '/dashboard';
+        const page = hash.replace('/', '') || 'dashboard';
+        
+        if (PageConfig[page]) {
+            this.navigateTo(page);
+        } else {
+            this.navigateTo('dashboard');
+        }
+    },
+
+    /**
+     * 导航到指定页面
+     * @param {string} page - 页面名称
+     */
+    navigateTo(page) {
+        AppState.currentPage = page;
+        
+        // 更新导航状态
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.classList.remove('active');
+            if (item.dataset.page === page) {
+                item.classList.add('active');
+            }
+        });
+
+        // 更新页面标题
+        const pageTitle = document.getElementById('pageTitle');
+        if (pageTitle && PageConfig[page]) {
+            pageTitle.textContent = PageConfig[page].title;
+        }
+
+        // 渲染页面
+        this.renderPage(page);
+
+        // 更新 URL
+        window.location.hash = `/${page}`;
+    },
+
+    /**
+     * 渲染页面
+     * @param {string} page - 页面名称
+     */
+    async renderPage(page) {
+        const container = document.getElementById('pageContainer');
+        if (!container) return;
+
+        try {
+            UI.showLoading();
+            if (PageConfig[page] && PageConfig[page].render) {
+                const content = await PageConfig[page].render();
+                container.innerHTML = content;
+            }
+        } catch (error) {
+            console.error('页面渲染错误:', error);
+            container.innerHTML = UI.renderError('页面加载失败，请刷新重试');
+        } finally {
+            UI.hideLoading();
+        }
+    },
+};
+
+/**
+ * UI 组件管理
+ */
+const UI = {
+    /**
+     * 显示加载遮罩
+     */
+    showLoading() {
+        const overlay = document.getElementById('loadingOverlay');
+        if (overlay) {
+            overlay.classList.add('active');
+        }
+        AppState.loading = true;
+    },
+
+    /**
+     * 隐藏加载遮罩
+     */
+    hideLoading() {
+        const overlay = document.getElementById('loadingOverlay');
+        if (overlay) {
+            overlay.classList.remove('active');
+        }
+        AppState.loading = false;
+    },
+
+    /**
+     * 显示 Toast 提示
+     * @param {string} message - 提示消息
+     * @param {string} type - 类型: success, error, warning, info
+     * @param {number} duration - 显示时长（毫秒）
+     */
+    toast(message, type = 'info', duration = 3000) {
+        const container = document.getElementById('toastContainer');
+        if (!container) return;
+
+        const icons = {
+            success: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+            error: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+            warning: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+            info: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+        };
+
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.innerHTML = `
+            <span class="toast-icon">${icons[type]}</span>
+            <div class="toast-content">
+                <div class="toast-message">${message}</div>
+            </div>
+        `;
+
+        container.appendChild(toast);
+
+        setTimeout(() => {
+            toast.style.animation = 'slideIn 0.3s ease reverse';
+            setTimeout(() => toast.remove(), 300);
+        }, duration);
+    },
+
+    /**
+     * 显示模态框
+     * @param {string} title - 标题
+     * @param {string} content - 内容 HTML
+     * @param {string} footer - 底部按钮 HTML
+     * @param {string} size - 尺寸: '', 'lg', 'xl'
+     */
+    showModal(title, content, footer = '', size = '') {
+        const overlay = document.getElementById('modalOverlay');
+        const modal = document.getElementById('modal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalBody = document.getElementById('modalBody');
+        const modalFooter = document.getElementById('modalFooter');
+
+        if (!overlay || !modal) return;
+
+        modalTitle.textContent = title;
+        modalBody.innerHTML = content;
+        modalFooter.innerHTML = footer;
+
+        modal.className = 'modal' + (size ? ` modal-${size}` : '');
+        overlay.classList.add('active');
+    },
+
+    /**
+     * 关闭模态框
+     */
+    closeModal() {
+        const overlay = document.getElementById('modalOverlay');
+        if (overlay) {
+            overlay.classList.remove('active');
+        }
+    },
+
+    /**
+     * 确认对话框
+     * @param {string} message - 确认消息
+     * @param {Function} onConfirm - 确认回调
+     * @param {Function} onCancel - 取消回调
+     */
+    confirm(message, onConfirm, onCancel = null) {
+        const footer = `
+            <button class="btn btn-secondary" id="confirmCancel">取消</button>
+            <button class="btn btn-danger" id="confirmOk">确认</button>
+        `;
+
+        this.showModal('确认操作', `<p>${message}</p>`, footer);
+
+        const confirmOk = document.getElementById('confirmOk');
+        const confirmCancel = document.getElementById('confirmCancel');
+
+        const handleConfirm = () => {
+            this.closeModal();
+            if (onConfirm) onConfirm();
+            cleanup();
+        };
+
+        const handleCancel = () => {
+            this.closeModal();
+            if (onCancel) onCancel();
+            cleanup();
+        };
+
+        const cleanup = () => {
+            confirmOk.removeEventListener('click', handleConfirm);
+            confirmCancel.removeEventListener('click', handleCancel);
+        };
+
+        confirmOk.addEventListener('click', handleConfirm);
+        confirmCancel.addEventListener('click', handleCancel);
+    },
+
+    /**
+     * 渲染空状态
+     * @param {string} title - 标题
+     * @param {string} description - 描述
+     * @param {string} buttonText - 按钮文字
+     * @param {Function} onClick - 点击回调
+     */
+    renderEmpty(title, description, buttonText = null, onClick = null) {
+        return `
+            <div class="empty-state">
+                <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                </svg>
+                <h3 class="empty-title">${title}</h3>
+                <p class="empty-description">${description}</p>
+                ${buttonText ? `<button class="btn btn-primary" id="emptyAction">${buttonText}</button>` : ''}
+            </div>
+        `;
+    },
+
+    /**
+     * 渲染错误状态
+     * @param {string} message - 错误消息
+     */
+    renderError(message) {
+        return `
+            <div class="empty-state">
+                <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--danger-color)">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="15" y1="9" x2="9" y2="15"/>
+                    <line x1="9" y1="9" x2="15" y2="15"/>
+                </svg>
+                <h3 class="empty-title">出错了</h3>
+                <p class="empty-description">${message}</p>
+                <button class="btn btn-primary" onclick="location.reload()">刷新页面</button>
+            </div>
+        `;
+    },
+
+    /**
+     * 渲染分页组件
+     * @param {number} current - 当前页
+     * @param {number} total - 总页数
+     * @param {Function} onChange - 页码变化回调
+     */
+    renderPagination(current, total, onChange) {
+        if (total <= 1) return '';
+
+        const pages = [];
+        const showPages = 5;
+        let start = Math.max(1, current - Math.floor(showPages / 2));
+        let end = Math.min(total, start + showPages - 1);
+
+        if (end - start + 1 < showPages) {
+            start = Math.max(1, end - showPages + 1);
+        }
+
+        // 上一页
+        pages.push(`
+            <button class="pagination-btn" ${current === 1 ? 'disabled' : ''} data-page="${current - 1}">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="15 18 9 12 15 6"/>
+                </svg>
+            </button>
+        `);
+
+        // 第一页
+        if (start > 1) {
+            pages.push(`<button class="pagination-btn" data-page="1">1</button>`);
+            if (start > 2) {
+                pages.push(`<span class="pagination-info">...</span>`);
+            }
+        }
+
+        // 页码
+        for (let i = start; i <= end; i++) {
+            pages.push(`
+                <button class="pagination-btn ${i === current ? 'active' : ''}" data-page="${i}">${i}</button>
+            `);
+        }
+
+        // 最后一页
+        if (end < total) {
+            if (end < total - 1) {
+                pages.push(`<span class="pagination-info">...</span>`);
+            }
+            pages.push(`<button class="pagination-btn" data-page="${total}">${total}</button>`);
+        }
+
+        // 下一页
+        pages.push(`
+            <button class="pagination-btn" ${current === total ? 'disabled' : ''} data-page="${current + 1}">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="9 18 15 12 9 6"/>
+                </svg>
+            </button>
+        `);
+
+        return `
+            <div class="pagination">
+                ${pages.join('')}
+                <span class="pagination-info">第 ${current} / ${total} 页</span>
+            </div>
+        `;
+    },
+
+    /**
+     * 绑定分页事件
+     * @param {Function} onChange - 页码变化回调
+     */
+    bindPaginationEvents(onChange) {
+        document.querySelectorAll('.pagination-btn[data-page]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const page = parseInt(e.currentTarget.dataset.page);
+                if (!isNaN(page) && !e.currentTarget.disabled) {
+                    onChange(page);
+                }
+            });
+        });
+    },
+
+    /**
+     * 格式化日期时间
+     * @param {string|Date} date - 日期
+     * @param {boolean} includeTime - 是否包含时间
+     */
+    formatDateTime(date, includeTime = true) {
+        if (!date) return '-';
+        const d = new Date(date);
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        
+        if (includeTime) {
+            const hour = String(d.getHours()).padStart(2, '0');
+            const minute = String(d.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day} ${hour}:${minute}`;
+        }
+        return `${year}-${month}-${day}`;
+    },
+
+    /**
+     * 格式化文件大小
+     * @param {number} bytes - 字节数
+     */
+    formatFileSize(bytes) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    },
+};
+
+/**
+ * 侧边栏管理
+ */
+const Sidebar = {
+    /**
+     * 初始化侧边栏
+     */
+    init() {
+        const toggle = document.getElementById('menuToggle');
+        const sidebar = document.querySelector('.sidebar');
+
+        if (toggle && sidebar) {
+            toggle.addEventListener('click', () => {
+                sidebar.classList.toggle('open');
+            });
+        }
+
+        // 点击外部关闭侧边栏（移动端）
+        document.addEventListener('click', (e) => {
+            if (window.innerWidth <= 1024) {
+                if (!sidebar.contains(e.target) && !toggle.contains(e.target)) {
+                    sidebar.classList.remove('open');
+                }
+            }
+        });
+    },
+};
+
+/**
+ * 模态框事件绑定
+ */
+const ModalEvents = {
+    init() {
+        const closeBtn = document.getElementById('modalClose');
+        const overlay = document.getElementById('modalOverlay');
+
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => UI.closeModal());
+        }
+
+        if (overlay) {
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    UI.closeModal();
+                }
+            });
+        }
+
+        // ESC 键关闭模态框
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                UI.closeModal();
+            }
+        });
+    },
+};
+
+/**
+ * 应用初始化
+ */
+function initApp() {
+    // 初始化侧边栏
+    Sidebar.init();
+
+    // 初始化模态框事件
+    ModalEvents.init();
+
+    // 初始化路由
+    Router.init();
+
+    // 绑定导航点击事件
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+            const page = item.dataset.page;
+            if (page) {
+                Router.navigateTo(page);
+                // 移动端关闭侧边栏
+                if (window.innerWidth <= 1024) {
+                    document.querySelector('.sidebar').classList.remove('open');
+                }
+            }
+        });
+    });
+
+    console.log('简历智能筛选系统已初始化');
+}
+
+// DOM 加载完成后初始化应用
+document.addEventListener('DOMContentLoaded', initApp);
+
+// 导出全局对象
+window.AppState = AppState;
+window.Router = Router;
+window.UI = UI;
