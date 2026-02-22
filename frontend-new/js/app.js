@@ -92,21 +92,15 @@ const Router = {
         window.location.hash = targetHash;
     },
 
-    /**
-     * 渲染页面
-     * @param {string} page - 页面名称
-     */
     async renderPage(page) {
         const container = document.getElementById('pageContainer');
         if (!container) return;
 
         try {
-            UI.showLoading();
             if (PageConfig[page] && PageConfig[page].render) {
                 const content = await PageConfig[page].render();
                 container.innerHTML = content;
                 
-                // 初始化页面事件
                 const pageModule = window[page.charAt(0).toUpperCase() + page.slice(1) + 'Page'];
                 if (pageModule && typeof pageModule.initEvents === 'function') {
                     pageModule.initEvents();
@@ -115,8 +109,6 @@ const Router = {
         } catch (error) {
             console.error('页面渲染错误:', error);
             container.innerHTML = UI.renderError('页面加载失败，请刷新重试');
-        } finally {
-            UI.hideLoading();
         }
     },
 };
