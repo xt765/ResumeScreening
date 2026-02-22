@@ -41,6 +41,8 @@ async def create_user_table() -> None:
 
 async def init_admin() -> None:
     """初始化管理员账号。"""
+    import src.models
+
     settings = get_settings()
 
     print("=" * 50)
@@ -53,9 +55,15 @@ async def init_admin() -> None:
 
     await create_user_table()
 
-    password_hash = pwd_context.hash(ADMIN_PASSWORD)
+    password_hash = bcrypt.hashpw(
+        ADMIN_PASSWORD.encode("utf-8"),
+        bcrypt.gensalt(rounds=12),
+    ).decode("utf-8")
 
-    async with async_session_factory() as session:
+    if src.models.async_session_factory is None:
+        raise RuntimeError("会话工厂未初始化")
+
+    async with src.models.async_session_factory() as session:
         result = await session.execute(
             text("SELECT id FROM user WHERE username = :username"),
             {"username": ADMIN_USERNAME},
