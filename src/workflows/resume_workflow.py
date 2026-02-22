@@ -297,13 +297,26 @@ async def run_resume_workflow(
         ```
     """
     start_time = time.time()
-    logger.info(f"开始运行简历处理工作流: file_path={file_path}")
+    logger.info(f"开始运行简历处理工作流: file_path={file_path}, condition_id={condition_id}")
 
     try:
-        # 获取工作流实例
+        if not condition_config and condition_id:
+            from sqlalchemy import select
+
+            from src.models import async_session_factory
+            from src.models.condition import ScreeningCondition
+
+            async with async_session_factory() as session:
+                result = await session.execute(
+                    select(ScreeningCondition).where(ScreeningCondition.id == condition_id)
+                )
+                condition_record = result.scalar_one_or_none()
+                if condition_record and condition_record.conditions:
+                    condition_config = condition_record.conditions
+                    logger.info(f"从数据库加载筛选条件配置: {condition_config}")
+
         workflow = get_resume_workflow()
 
-        # 初始化状态
         initial_state = ResumeState(
             file_path=file_path,
             condition_id=condition_id,
