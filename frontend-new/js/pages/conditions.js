@@ -4,30 +4,32 @@
  */
 
 const ConditionsPage = {
-    // 条件列表数据
     conditions: [],
-    // 分页信息
     pagination: {
         page: 1,
         pageSize: 10,
         total: 0,
         totalPages: 0,
     },
-    // 搜索关键词
     searchKeyword: '',
+    dataLoadedAt: null,
+    CACHE_DURATION: 5 * 60 * 1000,
 
-    /**
-     * 渲染页面
-     */
     async render() {
-        await this.loadConditions();
+        this.loadDataAsync();
         return this.renderContent();
     },
 
-    /**
-     * 加载筛选条件列表
-     */
-    async loadConditions() {
+    async loadDataAsync() {
+        const now = Date.now();
+        
+        if (this.conditions.length > 0 && this.dataLoadedAt) {
+            const age = now - this.dataLoadedAt;
+            if (age < this.CACHE_DURATION) {
+                return;
+            }
+        }
+
         try {
             const response = await conditionsApi.getList({
                 name: this.searchKeyword || undefined,
@@ -39,10 +41,20 @@ const ConditionsPage = {
                 this.conditions = response.data.items || [];
                 this.pagination.total = response.data.total || 0;
                 this.pagination.totalPages = response.data.total_pages || 0;
+                this.dataLoadedAt = now;
+                this.updateContent();
             }
         } catch (error) {
             console.error('加载筛选条件失败:', error);
             UI.toast('加载筛选条件失败', 'error');
+        }
+    },
+
+    updateContent() {
+        const container = document.getElementById('pageContainer');
+        if (container) {
+            container.innerHTML = this.renderContent();
+            this.initEvents();
         }
     },
 
@@ -527,8 +539,10 @@ const ConditionsPage = {
 };
 
 // 添加页面特定样式
-const conditionsStyles = document.createElement('style');
-conditionsStyles.textContent = `
+if (!document.getElementById('conditions-styles')) {
+    const conditionsStyles = document.createElement('style');
+    conditionsStyles.id = 'conditions-styles';
+    conditionsStyles.textContent = `
     .conditions-page .page-toolbar {
         display: flex;
         align-items: center;
@@ -566,19 +580,12 @@ conditionsStyles.textContent = `
         }
     }
 `;
-document.head.appendChild(conditionsStyles);
+    document.head.appendChild(conditionsStyles);
+}
 
-// 页面加载后初始化事件
 document.addEventListener('DOMContentLoaded', () => {
     if (AppState.currentPage === 'conditions') {
-        setTimeout(() => ConditionsPage.initEvents(), 100);
-    }
-});
-
-// 监听路由变化
-window.addEventListener('hashchange', () => {
-    if (AppState.currentPage === 'conditions') {
-        setTimeout(() => ConditionsPage.initEvents(), 100);
+        ConditionsPage.initEvents();
     }
 });
 

@@ -4,16 +4,23 @@
 - 任务创建和执行
 - 任务状态跟踪
 - 进度更新通知
+- Redis 持久化存储
 """
 
 import asyncio
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
-from typing import Any, Callable
+from typing import Any
 from uuid import uuid4
 
 from loguru import logger
+
+from src.storage.redis_client import redis_client
+
+TASK_KEY_PREFIX = "task:"
+TASK_EXPIRE_SECONDS = 24 * 60 * 60
 
 
 class TaskStatusEnum(StrEnum):
@@ -49,6 +56,36 @@ class TaskProgress:
     total: int = 0
     message: str = ""
     percentage: float = 0.0
+
+    def to_dict(self) -> dict[str, Any]:
+        """转换为字典格式。
+
+        Returns:
+            dict[str, Any]: 进度信息字典
+        """
+        return {
+            "current": self.current,
+            "total": self.total,
+            "message": self.message,
+            "percentage": self.percentage,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "TaskProgress":
+        """从字典创建实例。
+
+        Args:
+            data: 进度信息字典
+
+        Returns:
+            TaskProgress: 进度实例
+        """
+        return cls(
+            current=data.get("current", 0),
+            total=data.get("total", 0),
+            message=data.get("message", ""),
+            percentage=data.get("percentage", 0.0),
+        )
 
 
 @dataclass
@@ -89,12 +126,7 @@ class TaskInfo:
             "id": self.id,
             "name": self.name,
             "status": self.status.value,
-            "progress": {
-                "current": self.progress.current,
-                "total": self.progress.total,
-                "message": self.progress.message,
-                "percentage": self.progress.percentage,
-            },
+            "progress": self.progress.to_dict(),
             "result": self.result,
             "error": self.error,
             "created_at": self.created_at.isoformat() if self.created_at else None,
@@ -103,14 +135,44 @@ class TaskInfo:
             "metadata": self.metadata,
         }
 
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "TaskInfo":
+        """从字典创建实例。
+
+        Args:
+            data: 任务信息字典
+
+        Returns:
+            TaskInfo: 任务实例
+        """
+        return cls(
+            id=data["id"],
+            name=data["name"],
+            status=TaskStatusEnum(data.get("status", "pending")),
+            progress=TaskProgress.from_dict(data.get("progress", {})),
+            result=data.get("result", {}),
+            error=data.get("error"),
+            created_at=datetime.fromisoformat(data["created_at"])
+            if data.get("created_at")
+            else None,
+            started_at=datetime.fromisoformat(data["started_at"])
+            if data.get("started_at")
+            else None,
+            completed_at=datetime.fromisoformat(data["completed_at"])
+            if data.get("completed_at")
+            else None,
+            metadata=data.get("metadata", {}),
+        )
+
 
 class TaskManager:
     """任务管理器。
 
     管理后台任务的创建、执行和状态跟踪。
+    支持内存缓存和 Redis 持久化存储。
 
     Attributes:
-        tasks: 任务字典
+        tasks: 内存任务缓存
         callbacks: 进度更新回调列表
     """
 
@@ -119,6 +181,65 @@ class TaskManager:
         self.tasks: dict[str, TaskInfo] = {}
         self.callbacks: list[Callable[[str, TaskInfo], None]] = []
         self._running_tasks: dict[str, asyncio.Task] = {}
+
+    def _get_redis_key(self, task_id: str) -> str:
+        """生成 Redis 键名。
+
+        Args:
+            task_id: 任务 ID
+
+        Returns:
+            str: Redis 键名
+        """
+        return f"{TASK_KEY_PREFIX}{task_id}"
+
+    async def _save_task_to_redis(self, task_info: TaskInfo) -> None:
+        """保存任务到 Redis。
+
+        Args:
+            task_info: 任务信息
+        """
+        try:
+            key = self._get_redis_key(task_info.id)
+            await redis_client.set_json(
+                key,
+                task_info.to_dict(),
+                expire=TASK_EXPIRE_SECONDS,
+            )
+            logger.debug(f"任务已保存到 Redis: task_id={task_info.id}")
+        except Exception as e:
+            logger.warning(f"保存任务到 Redis 失败: task_id={task_info.id}, error={e}")
+
+    async def _load_task_from_redis(self, task_id: str) -> TaskInfo | None:
+        """从 Redis 加载任务。
+
+        Args:
+            task_id: 任务 ID
+
+        Returns:
+            TaskInfo | None: 任务信息，不存在返回 None
+        """
+        try:
+            key = self._get_redis_key(task_id)
+            data = await redis_client.get_json(key)
+            if data and isinstance(data, dict):
+                return TaskInfo.from_dict(data)
+        except Exception as e:
+            logger.warning(f"从 Redis 加载任务失败: task_id={task_id}, error={e}")
+        return None
+
+    async def _delete_task_from_redis(self, task_id: str) -> None:
+        """从 Redis 删除任务。
+
+        Args:
+            task_id: 任务 ID
+        """
+        try:
+            key = self._get_redis_key(task_id)
+            await redis_client.delete_cache(key)
+            logger.debug(f"任务已从 Redis 删除: task_id={task_id}")
+        except Exception as e:
+            logger.warning(f"从 Redis 删除任务失败: task_id={task_id}, error={e}")
 
     def register_callback(self, callback: Callable[[str, TaskInfo], None]) -> None:
         """注册进度更新回调。
@@ -153,7 +274,7 @@ class TaskManager:
             except Exception as e:
                 logger.warning(f"回调执行失败: {e}")
 
-    def create_task(
+    async def create_task(
         self,
         name: str,
         metadata: dict[str, Any] | None = None,
@@ -174,6 +295,7 @@ class TaskManager:
             metadata=metadata or {},
         )
         self.tasks[task_id] = task_info
+        await self._save_task_to_redis(task_info)
         logger.info(f"创建任务: id={task_id}, name={name}")
         return task_info
 
@@ -192,16 +314,18 @@ class TaskManager:
             total: 总数量
             message: 进度消息
         """
-        if task_id not in self.tasks:
+        task = await self.get_task(task_id)
+        if task is None:
             logger.warning(f"任务不存在: {task_id}")
             return
 
-        task = self.tasks[task_id]
         task.progress.current = current
         task.progress.total = total
         task.progress.message = message
         task.progress.percentage = (current / total * 100) if total > 0 else 0
 
+        self.tasks[task_id] = task
+        await self._save_task_to_redis(task)
         await self._notify_callbacks(task_id, task)
 
     async def start_task(
@@ -219,14 +343,16 @@ class TaskManager:
             args: 位置参数
             kwargs: 关键字参数
         """
-        if task_id not in self.tasks:
+        task = await self.get_task(task_id)
+        if task is None:
             logger.warning(f"任务不存在: {task_id}")
             return
 
-        task = self.tasks[task_id]
         task.status = TaskStatusEnum.RUNNING
         task.started_at = datetime.now()
 
+        self.tasks[task_id] = task
+        await self._save_task_to_redis(task)
         await self._notify_callbacks(task_id, task)
 
         async def run_task() -> None:
@@ -247,14 +373,18 @@ class TaskManager:
                 task.completed_at = datetime.now()
                 logger.exception(f"任务失败: id={task_id}, error={e}")
             finally:
+                self.tasks[task_id] = task
+                await self._save_task_to_redis(task)
                 await self._notify_callbacks(task_id, task)
                 if task_id in self._running_tasks:
                     del self._running_tasks[task_id]
 
         self._running_tasks[task_id] = asyncio.create_task(run_task())
 
-    def get_task(self, task_id: str) -> TaskInfo | None:
+    async def get_task(self, task_id: str) -> TaskInfo | None:
         """获取任务信息。
+
+        优先从内存缓存读取，若不存在则从 Redis 加载。
 
         Args:
             task_id: 任务 ID
@@ -262,7 +392,13 @@ class TaskManager:
         Returns:
             TaskInfo | None: 任务信息，不存在返回 None
         """
-        return self.tasks.get(task_id)
+        if task_id in self.tasks:
+            return self.tasks[task_id]
+
+        task = await self._load_task_from_redis(task_id)
+        if task:
+            self.tasks[task_id] = task
+        return task
 
     def cancel_task(self, task_id: str) -> bool:
         """取消任务。
@@ -278,7 +414,7 @@ class TaskManager:
             return True
         return False
 
-    def list_tasks(
+    async def list_tasks(
         self,
         status: TaskStatusEnum | None = None,
         limit: int = 100,
@@ -298,7 +434,7 @@ class TaskManager:
         tasks.sort(key=lambda t: t.created_at, reverse=True)
         return tasks[:limit]
 
-    def cleanup_completed_tasks(self, max_age_hours: int = 24) -> int:
+    async def cleanup_completed_tasks(self, max_age_hours: int = 24) -> int:
         """清理已完成的任务。
 
         Args:
@@ -311,18 +447,22 @@ class TaskManager:
         to_remove = []
 
         for task_id, task in self.tasks.items():
-            if task.status in [
-                TaskStatusEnum.COMPLETED,
-                TaskStatusEnum.FAILED,
-                TaskStatusEnum.CANCELLED,
-            ]:
-                if task.completed_at:
-                    age_hours = (now - task.completed_at).total_seconds() / 3600
-                    if age_hours > max_age_hours:
-                        to_remove.append(task_id)
+            if (
+                task.status
+                in [
+                    TaskStatusEnum.COMPLETED,
+                    TaskStatusEnum.FAILED,
+                    TaskStatusEnum.CANCELLED,
+                ]
+                and task.completed_at
+            ):
+                age_hours = (now - task.completed_at).total_seconds() / 3600
+                if age_hours > max_age_hours:
+                    to_remove.append(task_id)
 
         for task_id in to_remove:
             del self.tasks[task_id]
+            await self._delete_task_from_redis(task_id)
 
         if to_remove:
             logger.info(f"清理已完成任务: count={len(to_remove)}")
@@ -330,8 +470,7 @@ class TaskManager:
         return len(to_remove)
 
 
-# 全局任务管理器实例
 task_manager = TaskManager()
 
 
-__all__ = ["TaskManager", "TaskInfo", "TaskProgress", "TaskStatusEnum", "task_manager"]
+__all__ = ["TaskInfo", "TaskManager", "TaskProgress", "TaskStatusEnum", "task_manager"]

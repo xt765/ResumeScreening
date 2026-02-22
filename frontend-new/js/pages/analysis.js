@@ -4,30 +4,42 @@
  */
 
 const AnalysisPage = {
-    // 查询结果
     queryResults: [],
-    // 统计数据
     statistics: null,
+    dataLoadedAt: null,
+    CACHE_DURATION: 5 * 60 * 1000,
 
-    /**
-     * 渲染页面
-     */
     async render() {
-        await this.loadStatistics();
+        this.loadDataAsync();
         return this.renderContent();
     },
 
-    /**
-     * 加载统计数据
-     */
-    async loadStatistics() {
+    async loadDataAsync() {
+        const now = Date.now();
+        
+        if (this.statistics && this.dataLoadedAt) {
+            const age = now - this.dataLoadedAt;
+            if (age < this.CACHE_DURATION) {
+                return;
+            }
+        }
+
         try {
             const response = await analysisApi.getStatistics();
             if (response.success) {
                 this.statistics = response.data;
+                this.dataLoadedAt = now;
+                this.updateStatistics();
             }
         } catch (error) {
             console.error('加载统计数据失败:', error);
+        }
+    },
+
+    updateStatistics() {
+        const statsContainer = document.querySelector('.stats-summary');
+        if (statsContainer && this.statistics) {
+            statsContainer.outerHTML = this.renderStatsSummary();
         }
     },
 
@@ -392,8 +404,10 @@ const AnalysisPage = {
 };
 
 // 添加页面特定样式
-const analysisStyles = document.createElement('style');
-analysisStyles.textContent = `
+if (!document.getElementById('analysis-styles')) {
+    const analysisStyles = document.createElement('style');
+    analysisStyles.id = 'analysis-styles';
+    analysisStyles.textContent = `
     .analysis-page .analysis-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -641,19 +655,12 @@ analysisStyles.textContent = `
         }
     }
 `;
-document.head.appendChild(analysisStyles);
+    document.head.appendChild(analysisStyles);
+}
 
-// 页面加载后初始化事件
 document.addEventListener('DOMContentLoaded', () => {
     if (AppState.currentPage === 'analysis') {
-        setTimeout(() => AnalysisPage.initEvents(), 100);
-    }
-});
-
-// 监听路由变化
-window.addEventListener('hashchange', () => {
-    if (AppState.currentPage === 'analysis') {
-        setTimeout(() => AnalysisPage.initEvents(), 100);
+        AnalysisPage.initEvents();
     }
 });
 

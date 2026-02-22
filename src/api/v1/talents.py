@@ -188,7 +188,19 @@ def _build_condition_filters(config: dict[str, Any]) -> list:
     school_tier = config.get("school_tier")
     if school_tier:
         tier_schools = {
-            "top": ["985", "C9", "清华", "北大", "复旦", "上交", "浙大", "中科大", "南大", "西交", "哈工大"],
+            "top": [
+                "985",
+                "C9",
+                "清华",
+                "北大",
+                "复旦",
+                "上交",
+                "浙大",
+                "中科大",
+                "南大",
+                "西交",
+                "哈工大",
+            ],
             "key": ["211", "重点"],
             "overseas": ["大学", "University", "学院", "College"],
         }
@@ -259,7 +271,10 @@ async def upload_and_screen(
 
     async with async_session_factory() as session:
         existing_talent = await session.execute(
-            select(TalentInfo).where(TalentInfo.content_hash == content_hash)
+            select(TalentInfo).where(
+                TalentInfo.content_hash == content_hash,
+                TalentInfo.is_deleted == False,  # noqa: E712
+            )
         )
         existing = existing_talent.scalar_one_or_none()
         if existing:
@@ -388,7 +403,7 @@ async def batch_upload(
         )
 
     # 创建任务
-    task = task_manager.create_task(
+    task = await task_manager.create_task(
         name=f"批量上传简历 ({len(file_data_list)} 个文件)",
         metadata={"condition_id": condition_id, "file_count": len(file_data_list)},
     )
@@ -417,7 +432,10 @@ async def batch_upload(
                 # 检查重复
                 async with async_session_factory() as session:
                     existing_talent = await session.execute(
-                        select(TalentInfo).where(TalentInfo.content_hash == content_hash)
+                        select(TalentInfo).where(
+                            TalentInfo.content_hash == content_hash,
+                            TalentInfo.is_deleted == False,  # noqa: E712
+                        )
                     )
                     existing = existing_talent.scalar_one_or_none()
                     if existing:
@@ -528,16 +546,16 @@ async def list_tasks(
     Returns:
         APIResponse[list[dict[str, Any]]]: 任务列表响应
     """
+    from contextlib import suppress
+
     from src.core.tasks import TaskStatusEnum, task_manager
 
     status_enum = None
     if status:
-        try:
+        with suppress(ValueError):
             status_enum = TaskStatusEnum(status)
-        except ValueError:
-            pass
 
-    tasks = task_manager.list_tasks(status=status_enum, limit=limit)
+    tasks = await task_manager.list_tasks(status=status_enum, limit=limit)
     return APIResponse(
         success=True,
         message="获取成功",
@@ -565,7 +583,7 @@ async def get_task_status(task_id: str) -> APIResponse[dict[str, Any]]:
     """
     from src.core.tasks import task_manager
 
-    task = task_manager.get_task(task_id)
+    task = await task_manager.get_task(task_id)
     if task is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -599,7 +617,7 @@ async def cancel_task(task_id: str) -> APIResponse[dict[str, Any]]:
     """
     from src.core.tasks import task_manager
 
-    task = task_manager.get_task(task_id)
+    task = await task_manager.get_task(task_id)
     if task is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

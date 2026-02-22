@@ -26,6 +26,31 @@ const UploadPage = {
     ws: null,
     // 当前任务 ID
     currentTaskId: null,
+    // localStorage 键名
+    TASK_ID_KEY: 'resume_screening_task_id',
+
+    /**
+     * 保存任务 ID 到 localStorage
+     */
+    saveTaskId(taskId) {
+        if (taskId) {
+            localStorage.setItem(this.TASK_ID_KEY, taskId);
+        }
+    },
+
+    /**
+     * 清除 localStorage 中的任务 ID
+     */
+    clearTaskId() {
+        localStorage.removeItem(this.TASK_ID_KEY);
+    },
+
+    /**
+     * 从 localStorage 获取任务 ID
+     */
+    getSavedTaskId() {
+        return localStorage.getItem(this.TASK_ID_KEY);
+    },
 
     /**
      * 渲染页面
@@ -598,6 +623,53 @@ const UploadPage = {
 
         // 初始化 WebSocket
         this.initWebSocket();
+
+        // 恢复未完成的任务进度
+        this.restoreTaskProgress();
+    },
+
+    /**
+     * 恢复任务进度显示
+     */
+    async restoreTaskProgress() {
+        const savedTaskId = this.getSavedTaskId();
+        if (!savedTaskId) {
+            return;
+        }
+
+        try {
+            const response = await talentsApi.getTaskStatus(savedTaskId);
+            if (response.success && response.data) {
+                const taskData = response.data;
+                const status = taskData.status;
+
+                if (status === 'pending' || status === 'running') {
+                    this.currentTaskId = savedTaskId;
+
+                    const progressContainer = document.getElementById('progressContainer');
+                    const resultContainer = document.getElementById('resultContainer');
+                    const cancelTaskBtn = document.getElementById('cancelTaskBtn');
+
+                    if (progressContainer) progressContainer.classList.remove('hidden');
+                    if (resultContainer) resultContainer.classList.add('hidden');
+                    if (cancelTaskBtn && status === 'running') cancelTaskBtn.classList.remove('hidden');
+
+                    this.updateProgressUI(taskData);
+
+                    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                        this.ws.send(JSON.stringify({
+                            type: 'subscribe',
+                            task_id: this.currentTaskId
+                        }));
+                    }
+                } else {
+                    this.clearTaskId();
+                }
+            }
+        } catch (error) {
+            console.error('恢复任务进度失败:', error);
+            this.clearTaskId();
+        }
     },
 
     /**
@@ -742,6 +814,7 @@ const UploadPage = {
         this.uploadedFiles = [];
         this.screeningResult = null;
         this.currentTaskId = null;
+        this.clearTaskId();
 
         const uploadArea = document.getElementById('uploadArea');
         const fileList = document.getElementById('fileList');
@@ -811,6 +884,7 @@ const UploadPage = {
 
             if (response.success) {
                 this.currentTaskId = response.data.task_id;
+                this.saveTaskId(this.currentTaskId);
                 
                 // 订阅任务更新
                 if (this.ws && this.ws.readyState === WebSocket.OPEN) {
@@ -880,6 +954,7 @@ const UploadPage = {
         // 任务完成或失败时隐藏取消按钮
         if (cancelTaskBtn && (taskData.status === 'completed' || taskData.status === 'failed' || taskData.status === 'cancelled')) {
             cancelTaskBtn.classList.add('hidden');
+            this.clearTaskId();
         }
 
         // 任务完成时显示结果
@@ -979,8 +1054,10 @@ const UploadPage = {
 };
 
 // 添加页面特定样式
-const uploadStyles = document.createElement('style');
-uploadStyles.textContent = `
+if (!document.getElementById('upload-styles')) {
+    const uploadStyles = document.createElement('style');
+    uploadStyles.id = 'upload-styles';
+    uploadStyles.textContent = `
     .upload-page {
         max-width: 900px;
         margin: 0 auto;
@@ -1462,19 +1539,12 @@ uploadStyles.textContent = `
         }
     }
 `;
-document.head.appendChild(uploadStyles);
+    document.head.appendChild(uploadStyles);
+}
 
-// 页面加载后初始化事件
 document.addEventListener('DOMContentLoaded', () => {
     if (AppState.currentPage === 'upload') {
-        setTimeout(() => UploadPage.initEvents(), 100);
-    }
-});
-
-// 监听路由变化
-window.addEventListener('hashchange', () => {
-    if (AppState.currentPage === 'upload') {
-        setTimeout(() => UploadPage.initEvents(), 100);
+        UploadPage.initEvents();
     }
 });
 

@@ -4,30 +4,53 @@
  */
 
 const DashboardPage = {
-    // 统计数据缓存
     statistics: null,
+    dataLoadedAt: null,
+    CACHE_DURATION: 5 * 60 * 1000,
 
-    /**
-     * 渲染页面
-     */
     async render() {
+        this.loadDataAsync();
+        return this.renderContent();
+    },
+
+    async loadDataAsync() {
+        const now = Date.now();
+        
+        if (this.statistics && this.dataLoadedAt) {
+            const age = now - this.dataLoadedAt;
+            if (age < this.CACHE_DURATION) {
+                this.updateStats();
+                return;
+            }
+        }
+
         try {
             const response = await analysisApi.getStatistics();
             this.statistics = response.data;
-
-            return `
-                <div class="dashboard-page">
-                    ${this.renderStats()}
-                    <div class="dashboard-grid">
-                        ${this.renderQuickActions()}
-                        ${this.renderRecentTalents()}
-                    </div>
-                </div>
-            `;
+            this.dataLoadedAt = now;
+            this.updateStats();
         } catch (error) {
             console.error('加载统计数据失败:', error);
-            return UI.renderError('加载统计数据失败，请检查后端服务是否正常');
         }
+    },
+
+    updateStats() {
+        const statsContainer = document.querySelector('.stats-grid');
+        if (statsContainer && this.statistics) {
+            statsContainer.outerHTML = this.renderStats();
+        }
+    },
+
+    renderContent() {
+        return `
+            <div class="dashboard-page">
+                ${this.renderStats()}
+                <div class="dashboard-grid">
+                    ${this.renderQuickActions()}
+                    ${this.renderRecentTalents()}
+                </div>
+            </div>
+        `;
     },
 
     /**
@@ -279,8 +302,10 @@ const DashboardPage = {
 };
 
 // 添加页面特定样式
-const dashboardStyles = document.createElement('style');
-dashboardStyles.textContent = `
+if (!document.getElementById('dashboard-styles')) {
+    const dashboardStyles = document.createElement('style');
+    dashboardStyles.id = 'dashboard-styles';
+    dashboardStyles.textContent = `
     .dashboard-grid {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
@@ -438,19 +463,12 @@ dashboardStyles.textContent = `
         }
     }
 `;
-document.head.appendChild(dashboardStyles);
+    document.head.appendChild(dashboardStyles);
+}
 
-// 页面加载后初始化事件
 document.addEventListener('DOMContentLoaded', () => {
     if (AppState.currentPage === 'dashboard') {
-        setTimeout(() => DashboardPage.initEvents(), 100);
-    }
-});
-
-// 监听路由变化
-window.addEventListener('hashchange', () => {
-    if (AppState.currentPage === 'dashboard') {
-        setTimeout(() => DashboardPage.initEvents(), 100);
+        DashboardPage.initEvents();
     }
 });
 

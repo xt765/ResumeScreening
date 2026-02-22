@@ -4,16 +4,13 @@
  */
 
 const TalentsPage = {
-    // 人才列表数据
     talents: [],
-    // 分页信息
     pagination: {
         page: 1,
         pageSize: 10,
         total: 0,
         totalPages: 0,
     },
-    // 筛选条件
     filters: {
         name: '',
         major: '',
@@ -21,18 +18,43 @@ const TalentsPage = {
         screening_status: '',
         condition_id: '',
     },
-    // 可用的筛选条件列表
     conditionList: [],
-    // 当前选中的筛选条件详情
     selectedCondition: null,
+    dataLoadedAt: null,
+    CACHE_DURATION: 5 * 60 * 1000,
 
-    /**
-     * 渲染页面
-     */
     async render() {
-        await this.loadConditions();
-        await this.loadTalents();
+        this.loadDataAsync();
         return this.renderContent();
+    },
+
+    async loadDataAsync() {
+        const now = Date.now();
+        const cacheKey = JSON.stringify(this.filters) + this.pagination.page;
+        
+        if (this.talents.length > 0 && this.dataLoadedAt) {
+            const age = now - this.dataLoadedAt;
+            if (age < this.CACHE_DURATION) {
+                return;
+            }
+        }
+
+        try {
+            await this.loadConditions();
+            await this.loadTalents();
+            this.dataLoadedAt = now;
+            this.updateContent();
+        } catch (error) {
+            console.error('加载数据失败:', error);
+        }
+    },
+
+    updateContent() {
+        const container = document.getElementById('pageContainer');
+        if (container) {
+            container.innerHTML = this.renderContent();
+            this.initEvents();
+        }
     },
 
     /**
@@ -483,8 +505,7 @@ const TalentsPage = {
 
             if (response.success) {
                 UI.toast('删除成功', 'success');
-                await this.loadTalents();
-                this.render();
+                await this.refresh();
             }
         } catch (error) {
             console.error('删除人才失败:', error);
@@ -631,8 +652,10 @@ const TalentsPage = {
 };
 
 // 添加页面特定样式
-const talentsStyles = document.createElement('style');
-talentsStyles.textContent = `
+if (!document.getElementById('talents-styles')) {
+    const talentsStyles = document.createElement('style');
+    talentsStyles.id = 'talents-styles';
+    talentsStyles.textContent = `
     .talents-page .filter-form {
         display: flex;
         flex-direction: column;
@@ -826,19 +849,12 @@ talentsStyles.textContent = `
         }
     }
 `;
-document.head.appendChild(talentsStyles);
+    document.head.appendChild(talentsStyles);
+}
 
-// 页面加载后初始化事件
 document.addEventListener('DOMContentLoaded', () => {
     if (AppState.currentPage === 'talents') {
-        setTimeout(() => TalentsPage.initEvents(), 100);
-    }
-});
-
-// 监听路由变化
-window.addEventListener('hashchange', () => {
-    if (AppState.currentPage === 'talents') {
-        setTimeout(() => TalentsPage.initEvents(), 100);
+        TalentsPage.initEvents();
     }
 });
 

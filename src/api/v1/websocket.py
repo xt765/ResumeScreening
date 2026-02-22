@@ -5,7 +5,6 @@
 - 连接管理
 """
 
-import asyncio
 import json
 from typing import Any
 
@@ -146,7 +145,7 @@ async def websocket_tasks(websocket: WebSocket) -> None:
                     task_id = message.get("task_id")
                     if task_id:
                         subscribed_tasks.add(task_id)
-                        task = task_manager.get_task(task_id)
+                        task = await task_manager.get_task(task_id)
                         if task:
                             await manager.send_personal_message(
                                 {"type": "task_update", "task_id": task_id, "data": task.to_dict()},
@@ -161,14 +160,14 @@ async def websocket_tasks(websocket: WebSocket) -> None:
                         await websocket.send_json({"type": "unsubscribed", "task_id": task_id})
 
                 elif msg_type == "list_tasks":
+                    from contextlib import suppress
+
                     status_filter = message.get("status")
                     status_enum = None
                     if status_filter:
-                        try:
+                        with suppress(ValueError):
                             status_enum = TaskStatusEnum(status_filter)
-                        except ValueError:
-                            pass
-                    tasks = task_manager.list_tasks(status=status_enum)
+                    tasks = await task_manager.list_tasks(status=status_enum)
                     await websocket.send_json(
                         {
                             "type": "task_list",
@@ -186,4 +185,4 @@ async def websocket_tasks(websocket: WebSocket) -> None:
         manager.disconnect(websocket)
 
 
-__all__ = ["router", "manager"]
+__all__ = ["manager", "router"]

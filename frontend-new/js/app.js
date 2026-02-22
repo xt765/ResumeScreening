@@ -57,21 +57,26 @@ const Router = {
         const hash = window.location.hash.slice(1) || '/dashboard';
         const page = hash.replace('/', '') || 'dashboard';
         
+        if (page === AppState.currentPage) {
+            return;
+        }
+        
         if (PageConfig[page]) {
-            this.navigateTo(page);
+            this.renderPage(page);
         } else {
-            this.navigateTo('dashboard');
+            this.renderPage('dashboard');
         }
     },
 
-    /**
-     * 导航到指定页面
-     * @param {string} page - 页面名称
-     */
     navigateTo(page) {
+        const targetHash = `/${page}`;
+        
+        if (window.location.hash === targetHash) {
+            return;
+        }
+        
         AppState.currentPage = page;
         
-        // 更新导航状态
         document.querySelectorAll('.nav-item').forEach(item => {
             item.classList.remove('active');
             if (item.dataset.page === page) {
@@ -79,17 +84,14 @@ const Router = {
             }
         });
 
-        // 更新页面标题
         const pageTitle = document.getElementById('pageTitle');
         if (pageTitle && PageConfig[page]) {
             pageTitle.textContent = PageConfig[page].title;
         }
 
-        // 渲染页面
         this.renderPage(page);
 
-        // 更新 URL
-        window.location.hash = `/${page}`;
+        window.location.hash = targetHash;
     },
 
     /**
