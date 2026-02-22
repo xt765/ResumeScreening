@@ -46,11 +46,13 @@ class MetricsService:
             ResourceUsage: 资源使用情况。
         """
         cpu_percent = await asyncio.to_thread(psutil.cpu_percent, 0.1)
+        cpu_count = psutil.cpu_count(logical=True)
         memory = await asyncio.to_thread(psutil.virtual_memory)
         disk = await asyncio.to_thread(psutil.disk_usage, "/")
 
         return ResourceUsage(
             cpu_percent=round(cpu_percent, 1),
+            cpu_count=cpu_count or 1,
             memory_percent=round(memory.percent, 1),
             memory_used_gb=round(memory.used / (1024**3), 2),
             memory_total_gb=round(memory.total / (1024**3), 2),

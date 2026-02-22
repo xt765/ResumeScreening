@@ -172,23 +172,15 @@ const MonitorPage = {
                     <div class="resource-gauges">
                         <div class="gauge-item">
                             <div class="gauge-chart" id="cpuGauge"></div>
-                            <div class="gauge-info">
-                                <div class="gauge-label">CPU 使用率</div>
-                            </div>
+                            <div class="gauge-detail">${resources.cpu_count || 0} 核心</div>
                         </div>
                         <div class="gauge-item">
                             <div class="gauge-chart" id="memoryGauge"></div>
-                            <div class="gauge-info">
-                                <div class="gauge-label">内存使用率</div>
-                                <div class="gauge-detail">${resources.memory_used_gb || 0} / ${resources.memory_total_gb || 0} GB</div>
-                            </div>
+                            <div class="gauge-detail">${resources.memory_used_gb || 0} / ${resources.memory_total_gb || 0} GB</div>
                         </div>
                         <div class="gauge-item">
                             <div class="gauge-chart" id="diskGauge"></div>
-                            <div class="gauge-info">
-                                <div class="gauge-label">磁盘使用率</div>
-                                <div class="gauge-detail">${resources.disk_used_gb || 0} / ${resources.disk_total_gb || 0} GB</div>
-                            </div>
+                            <div class="gauge-detail">${resources.disk_used_gb || 0} / ${resources.disk_total_gb || 0} GB</div>
                         </div>
                     </div>
                 </div>
@@ -1375,84 +1367,95 @@ const MonitorPage = {
 
         const resources = this.healthData?.resources || {};
 
-        // 汽车仪表盘风格配置
-        const createGaugeOption = (value, colors, unit = '%') => ({
-            series: [{
-                type: 'gauge',
-                startAngle: 200,
-                endAngle: -20,
-                min: 0,
-                max: 100,
-                splitNumber: 10,
-                itemStyle: {
-                    color: {
-                        type: 'linear',
-                        x: 0, y: 0, x2: 1, y2: 0,
-                        colorStops: [
-                            { offset: 0, color: colors[0] },
-                            { offset: 1, color: colors[1] }
-                        ]
+        /**
+         * 创建圆弧进度条风格仪表盘配置
+         * 设计原则：无指针、无刻度、圆弧形、内容全部在仪表盘内部
+         */
+        const createGaugeOption = (value, colors, label) => {
+            const percent = Math.round(value || 0);
+            return {
+                series: [
+                    {
+                        type: 'gauge',
+                        startAngle: 200,
+                        endAngle: -20,
+                        min: 0,
+                        max: 100,
+                        radius: '100%',
+                        center: ['50%', '60%'],
+                        // 进度条样式
+                        progress: {
+                            show: true,
+                            width: 20,
+                            roundCap: true,
+                            itemStyle: {
+                                color: {
+                                    type: 'linear',
+                                    x: 0, y: 0, x2: 1, y2: 0,
+                                    colorStops: [
+                                        { offset: 0, color: colors[0] },
+                                        { offset: 1, color: colors[1] }
+                                    ]
+                                }
+                            }
+                        },
+                        // 背景轨道
+                        axisLine: {
+                            lineStyle: {
+                                width: 20,
+                                color: [[1, '#e5e7eb']],
+                                roundCap: true
+                            }
+                        },
+                        // 隐藏指针
+                        pointer: {
+                            show: false
+                        },
+                        // 隐藏刻度线
+                        axisTick: {
+                            show: false
+                        },
+                        // 隐藏分隔线
+                        splitLine: {
+                            show: false
+                        },
+                        // 隐藏刻度标签
+                        axisLabel: {
+                            show: false
+                        },
+                        // 中央数值和标签
+                        detail: {
+                            valueAnimation: true,
+                            formatter: () => `{value|${percent}}{unit|%}\n{label|${label}}`,
+                            fontSize: 36,
+                            fontWeight: 'bold',
+                            color: colors[0],
+                            offsetCenter: [0, '10%'],
+                            rich: {
+                                value: {
+                                    fontSize: 40,
+                                    fontWeight: 'bold',
+                                    color: colors[0]
+                                },
+                                unit: {
+                                    fontSize: 18,
+                                    fontWeight: 'bold',
+                                    color: colors[0],
+                                    padding: [0, 0, 6, 4]
+                                },
+                                label: {
+                                    fontSize: 16,
+                                    fontWeight: 'bold',
+                                    color: '#374151',
+                                    padding: [12, 0, 0, 0]
+                                }
+                            }
+                        },
+                        data: [{ value: percent }]
                     }
-                },
-                progress: {
-                    show: true,
-                    width: 20,
-                    roundCap: true
-                },
-                pointer: {
-                    show: true,
-                    length: '60%',
-                    width: 6,
-                    itemStyle: {
-                        color: colors[0]
-                    }
-                },
-                axisLine: {
-                    lineStyle: {
-                        width: 20,
-                        color: [[1, '#e5e7eb']]
-                    }
-                },
-                axisTick: {
-                    show: true,
-                    distance: -28,
-                    length: 6,
-                    lineStyle: {
-                        color: '#999',
-                        width: 1
-                    }
-                },
-                splitLine: {
-                    show: true,
-                    distance: -32,
-                    length: 12,
-                    lineStyle: {
-                        color: '#666',
-                        width: 2
-                    }
-                },
-                axisLabel: {
-                    show: true,
-                    distance: -50,
-                    fontSize: 10,
-                    color: '#666',
-                    formatter: (val) => {
-                        if (val === 0 || val === 50 || val === 100) return val;
-                        return '';
-                    }
-                },
-                detail: {
-                    show: true,
-                    valueAnimation: true,
-                    fontSize: 36,
-                    fontWeight: 'bold',
-                    color: colors[0],
-                    offsetCenter: [0, '70%'],
-                    formatter: `{value}${unit}`
-                },
-                data: [{ value: Math.round(value || 0) }]
-            }]
-        });
+                ]
+            };
+        };
 
         // CPU 仪表盘
         const cpuGauge = document.getElementById('cpuGauge');
@@ -1460,7 +1463,8 @@ const MonitorPage = {
             this.charts.cpu = echarts.init(cpuGauge);
             this.charts.cpu.setOption(createGaugeOption(
                 resources.cpu_percent || 0,
-                ['#3370ff', '#6690ff']
+                ['#3b82f6', '#60a5fa'],
+                'CPU 使用率'
             ));
         }
 
@@ -1470,7 +1474,8 @@ const MonitorPage = {
             this.charts.memory = echarts.init(memoryGauge);
             this.charts.memory.setOption(createGaugeOption(
                 resources.memory_percent || 0,
-                ['#22c55e', '#4ade80']
+                ['#22c55e', '#4ade80'],
+                '内存使用率'
             ));
         }
 
@@ -1480,7 +1485,8 @@ const MonitorPage = {
             this.charts.disk = echarts.init(diskGauge);
             this.charts.disk.setOption(createGaugeOption(
                 resources.disk_percent || 0,
-                ['#f59e0b', '#fbbf24']
+                ['#f59e0b', '#fbbf24'],
+                '磁盘使用率'
             ));
         }
     },
@@ -1647,43 +1653,35 @@ if (!document.getElementById('monitor-styles')) {
     .resource-gauges {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        gap: 24px;
+        gap: 32px;
     }
 
     .gauge-item {
         display: flex;
         flex-direction: column;
         align-items: center;
-        padding: 16px;
+        padding: 20px;
         background: var(--bg-secondary);
-        border-radius: var(--radius-md);
-        transition: transform 0.2s ease;
+        border-radius: var(--radius-lg);
+        transition: all 0.3s ease;
     }
 
     .gauge-item:hover {
-        transform: translateY(-2px);
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
     }
 
     .gauge-chart {
-        width: 220px;
-        height: 160px;
-    }
-
-    .gauge-info {
-        text-align: center;
-        margin-top: 8px;
-    }
-
-    .gauge-label {
-        font-size: 14px;
-        color: var(--text-secondary);
-        margin-bottom: 4px;
+        width: 280px;
+        height: 200px;
     }
 
     .gauge-detail {
-        font-size: 13px;
-        color: var(--text-muted);
-        margin-top: 4px;
+        margin-top: -8px;
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text-secondary);
+        text-align: center;
     }
 
     /* ========== 服务状态 ========== */
@@ -3006,7 +3004,17 @@ if (!document.getElementById('monitor-styles')) {
 
     @media (max-width: 1024px) {
         .resource-gauges {
-            grid-template-columns: 1fr;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .gauge-chart {
+            width: 200px;
+            height: 160px;
+        }
+
+        .gauge-item {
+            padding: 16px;
         }
 
         .health-detail-grid {
@@ -3030,6 +3038,16 @@ if (!document.getElementById('monitor-styles')) {
     }
 
     @media (max-width: 768px) {
+        .resource-gauges {
+            grid-template-columns: 1fr;
+            gap: 24px;
+        }
+
+        .gauge-chart {
+            width: 240px;
+            height: 180px;
+        }
+
         .filter-row-compact {
             flex-direction: column;
             align-items: stretch;

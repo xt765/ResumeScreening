@@ -91,6 +91,7 @@ class ResourceUsage(BaseModel):
 
     Attributes:
         cpu_percent: CPU 使用率百分比。
+        cpu_count: CPU 核心数。
         memory_percent: 内存使用率百分比。
         memory_used_gb: 已使用内存（GB）。
         memory_total_gb: 总内存（GB）。
@@ -100,6 +101,7 @@ class ResourceUsage(BaseModel):
     """
 
     cpu_percent: float = Field(..., ge=0, le=100, description="CPU 使用率百分比")
+    cpu_count: int = Field(..., ge=1, description="CPU 核心数")
     memory_percent: float = Field(..., ge=0, le=100, description="内存使用率百分比")
     memory_used_gb: float = Field(..., ge=0, description="已使用内存（GB）")
     memory_total_gb: float = Field(..., ge=0, description="总内存（GB）")
