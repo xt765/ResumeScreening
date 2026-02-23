@@ -229,6 +229,30 @@ const analysisApi = {
             filters,
         });
     },
+
+    /**
+     * 创建异步 RAG 查询任务
+     * @param {string} query - 查询文本
+     * @param {number} topK - 返回结果数量
+     * @param {Object} filters - 过滤条件
+     * @returns {Promise<Object>} 包含 task_id 的响应
+     */
+    createQueryTask(query, topK = 10, filters = null) {
+        return api.post('/analysis/query-async', {
+            query,
+            top_k: topK,
+            filters,
+        });
+    },
+
+    /**
+     * 获取分析任务状态
+     * @param {string} taskId - 任务 ID
+     * @returns {Promise<Object>} 任务状态和结果
+     */
+    getTaskStatus(taskId) {
+        return api.get(`/analysis/tasks/${taskId}`);
+    },
 };
 
 /**

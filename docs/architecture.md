@@ -89,28 +89,22 @@ src/storage/
 系统采用 LangGraph 构建 4 节点状态图工作流：
 
 ```mermaid
-graph TB
-    A([START]) --> B[ParseExtractNode<br/>解析提取节点]
-    B --> C[FilterNode<br/>筛选判断节点]
-    C --> D[StoreNode<br/>数据存储节点]
-    D --> E[CacheNode<br/>结果缓存节点]
-    E --> F([END])
-    
-    B --> B1[解析文档 PDF/DOCX]
-    B --> B2[提取文本和图片]
-    B --> B3[LLM 提取候选人信息]
-    
-    C --> C1[获取筛选条件]
-    C --> C2[LLM 判断是否符合条件]
-    C --> C3[生成筛选原因]
-    
-    D --> D1[保存人才信息到 MySQL]
-    D --> D2[上传照片到 MinIO]
-    D --> D3[存储向量到 ChromaDB]
-    
-    E --> E1[缓存结果到 Redis]
-    E --> E2[更新任务状态]
+graph LR
+    A([开始]) --> B[ParseExtractNode]
+    B --> C[FilterNode]
+    C --> D[StoreNode]
+    D --> E[CacheNode]
+    E --> F([结束])
 ```
+
+#### 各节点职责
+
+| 节点 | 职责 | 处理步骤 |
+|------|------|----------|
+| **ParseExtractNode** | 解析文档并提取候选人信息 | 1. 解析文档 (PDF/DOCX)<br/>2. 提取文本和图片<br/>3. LLM 提取候选人信息<br/>4. 检测照片人脸 |
+| **FilterNode** | 根据筛选条件判断是否符合要求 | 1. 获取筛选条件配置<br/>2. 构建筛选 Prompt<br/>3. LLM 判断是否符合条件<br/>4. 生成筛选原因 |
+| **StoreNode** | 持久化存储处理结果 | 1. 加密敏感信息<br/>2. 保存人才信息到 MySQL<br/>3. 上传照片到 MinIO<br/>4. 存储向量到 ChromaDB |
+| **CacheNode** | 缓存处理结果 | 1. 缓存结果到 Redis<br/>2. 更新任务状态<br/>3. WebSocket 推送进度 |
 
 ### 3.2 状态定义
 
@@ -149,61 +143,6 @@ class ResumeState(BaseModel):
     workflow_status: str              # 工作流状态
     processing_time: int | None       # 处理耗时
 ```
-
-### 3.3 节点详解
-
-#### 3.3.1 ParseExtractNode
-
-**职责**: 解析文档并提取候选人信息
-
-**处理流程**:
-1. 根据文件类型选择解析器
-2. PDF 使用 PyMuPDF 提取文本和图片
-3. DOCX 使用 python-docx 提取文本和图片
-4. 调用 LLM 提取结构化候选人信息
-5. 检测照片中的人脸
-
-**输出**:
-- `text_content`: 提取的文本内容
-- `images`: 提取的图片列表
-- `candidate_info`: LLM 提取的候选人信息
-
-#### 3.3.2 FilterNode
-
-**职责**: 根据筛选条件判断候选人是否符合要求
-
-**处理流程**:
-1. 获取筛选条件配置
-2. 构建筛选 Prompt
-3. 调用 LLM 进行判断
-4. 解析 LLM 返回的 JSON 结果
-
-**输出**:
-- `is_qualified`: 是否符合条件
-- `qualification_reason`: 筛选原因
-
-#### 3.3.3 StoreNode
-
-**职责**: 持久化存储处理结果
-
-**处理流程**:
-1. 加密敏感信息（手机号、邮箱）
-2. 保存人才信息到 MySQL
-3. 上传照片到 MinIO
-4. 生成简历向量并存储到 ChromaDB
-
-**输出**:
-- `talent_id`: 人才 ID
-- `photo_urls`: 照片 URL 列表
-
-#### 3.3.4 CacheNode
-
-**职责**: 缓存处理结果
-
-**处理流程**:
-1. 缓存结果到 Redis
-2. 更新任务状态
-3. 通过 WebSocket 推送进度
 
 ## 4. 数据模型设计
 
