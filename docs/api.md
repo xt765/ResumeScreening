@@ -4,11 +4,68 @@
 
 本文档描述人才简历智能筛选系统的 REST API 接口规范。
 
-- **Base URL**: `http://localhost:8000/api/v1`
-- **认证方式**: JWT Bearer Token
-- **数据格式**: JSON
+| 配置项 | 值 |
+|--------|-----|
+| Base URL | `http://localhost:8000/api/v1` |
+| 认证方式 | JWT Bearer Token |
+| 数据格式 | JSON |
+| 字符编码 | UTF-8 |
+
+## API 架构
+
+```mermaid
+graph LR
+    subgraph 客户端
+        A[Web浏览器]
+        B[移动端]
+    end
+    
+    subgraph API网关
+        C[Nginx反向代理]
+    end
+    
+    subgraph 认证层
+        D[JWT验证]
+    end
+    
+    subgraph API模块
+        E[认证API]
+        F[用户API]
+        G[条件API]
+        H[简历API]
+        I[分析API]
+        J[监控API]
+    end
+    
+    A --> C --> D --> E & F & G & H & I & J
+    B --> C
+```
 
 ## 认证
+
+### 认证流程
+
+```mermaid
+sequenceDiagram
+    participant C as 客户端
+    participant A as API服务
+    participant D as 数据库
+    
+    C->>A: POST /auth/login<br/>username + password
+    A->>D: 查询用户
+    D-->>A: 用户信息
+    A->>A: 验证密码(bcrypt)
+    A->>A: 生成JWT Token
+    A-->>C: 返回Token
+    
+    Note over C,A: 后续请求携带Token
+    
+    C->>A: GET /talents<br/>Authorization: Bearer xxx
+    A->>A: 验证Token
+    A->>D: 查询数据
+    D-->>A: 返回数据
+    A-->>C: 返回结果
+```
 
 ### 登录
 
@@ -45,7 +102,35 @@ username=admin&password=admin123
 Authorization: Bearer <access_token>
 ```
 
+### 权限说明
+
+| 角色 | 权限说明 | 可访问模块 |
+|------|----------|------------|
+| admin | 系统管理员 | 全部模块 |
+| hr | HR人员 | 简历、条件、分析、监控 |
+| viewer | 只读用户 | 简历查看、分析查询 |
+
 ## 用户管理
+
+### 用户管理流程
+
+```mermaid
+graph TB
+    A[管理员登录] --> B[进入用户管理]
+    B --> C{操作类型}
+    C -->|创建| D[填写用户信息]
+    C -->|编辑| E[修改用户信息]
+    C -->|删除| F[确认删除]
+    C -->|查看| G[查看用户列表]
+    
+    D --> H[验证用户名唯一]
+    H -->|通过| I[创建用户]
+    H -->|失败| J[提示错误]
+    
+    E --> K[更新数据库]
+    F --> L[软删除用户]
+    G --> M[分页展示]
+```
 
 ### 获取用户列表
 
@@ -123,6 +208,31 @@ Authorization: Bearer <token>
 ```
 
 ## 筛选条件管理
+
+### 筛选条件结构
+
+```mermaid
+graph TB
+    A[筛选条件] --> B[学历要求]
+    A --> C[技能要求]
+    A --> D[工作年限]
+    A --> E[院校层级]
+    
+    B --> B1[专科]
+    B --> B2[本科]
+    B --> B3[硕士]
+    B --> B4[博士]
+    
+    C --> C1[技能名称]
+    C --> C2[熟练程度<br/>精通/熟练/了解]
+    
+    D --> D1[最低年限]
+    D --> D2[最高年限]
+    
+    E --> E1[985]
+    E --> E2[211]
+    E --> E3[双一流]
+```
 
 ### 获取筛选条件列表
 
@@ -206,6 +316,26 @@ Authorization: Bearer <token>
 ```
 
 ## 人才管理
+
+### 简历处理流程
+
+```mermaid
+sequenceDiagram
+    participant U as 用户
+    participant A as API
+    participant W as 工作流
+    participant S as 存储
+    
+    U->>A: 上传简历
+    A->>A: 验证文件格式
+    A->>W: 启动工作流
+    W->>W: 解析文档
+    W->>W: LLM提取信息
+    W->>W: 智能筛选
+    W->>S: 存储数据
+    W-->>A: 处理完成
+    A-->>U: 返回结果
+```
 
 ### 获取人才列表
 
@@ -461,6 +591,26 @@ Authorization: Bearer <token>
 
 ## RAG 智能分析
 
+### RAG 查询流程
+
+```mermaid
+sequenceDiagram
+    participant U as 用户
+    participant A as API
+    participant E as Embedding
+    participant C as ChromaDB
+    participant L as LLM
+    
+    U->>A: 提交问题
+    A->>E: 问题向量化
+    E-->>A: 返回向量
+    A->>C: 向量相似度检索
+    C-->>A: 返回相关简历
+    A->>L: 构建 Prompt + 上下文
+    L-->>A: 生成回答
+    A-->>U: 返回结果+来源
+```
+
 ### 智能问答
 
 ```http
@@ -519,6 +669,38 @@ Authorization: Bearer <token>
 | page_size | int | 否 | 每页数量 |
 
 ## 系统监控
+
+### 监控架构
+
+```mermaid
+graph TB
+    subgraph 监控目标
+        A[MySQL]
+        B[Redis]
+        C[MinIO]
+        D[ChromaDB]
+    end
+    
+    subgraph 监控服务
+        E[健康检查]
+        F[指标采集]
+        G[日志收集]
+    end
+    
+    subgraph 监控输出
+        H[API响应]
+        I[日志文件]
+        J[告警通知]
+    end
+    
+    E --> A & B & C & D
+    F --> A & B & C & D
+    G --> A & B & C & D
+    
+    E --> H
+    F --> H
+    G --> I & J
+```
 
 ### 获取系统指标
 
@@ -583,6 +765,26 @@ Authorization: Bearer <token>
 
 ## WebSocket 接口
 
+### 连接流程
+
+```mermaid
+sequenceDiagram
+    participant C as 客户端
+    participant S as 服务端
+    
+    C->>S: WebSocket连接请求
+    S->>S: 验证Token
+    S-->>C: 连接成功
+    
+    loop 任务进行中
+        S->>C: 推送任务进度
+        C->>C: 更新UI
+    end
+    
+    S->>C: 推送任务完成
+    C->>S: 关闭连接
+```
+
 ### 连接
 
 ```javascript
@@ -623,13 +825,13 @@ const ws = new WebSocket('ws://localhost:8000/ws/tasks');
 
 ### 常见错误码
 
-| HTTP 状态码 | 说明 |
-|------------|------|
-| 400 | 请求参数错误 |
-| 401 | 未认证 |
-| 403 | 权限不足 |
-| 404 | 资源不存在 |
-| 500 | 服务器内部错误 |
+| HTTP 状态码 | 说明 | 处理建议 |
+|------------|------|----------|
+| 400 | 请求参数错误 | 检查请求参数格式 |
+| 401 | 未认证 | 重新登录获取Token |
+| 403 | 权限不足 | 联系管理员提升权限 |
+| 404 | 资源不存在 | 检查资源ID是否正确 |
+| 500 | 服务器内部错误 | 联系技术支持 |
 
 ## 分页格式
 
@@ -647,4 +849,46 @@ const ws = new WebSocket('ws://localhost:8000/ws/tasks');
     "pages": 5
   }
 }
+```
+
+## API 调用示例
+
+### Python 示例
+
+```python
+import requests
+
+# 登录获取Token
+response = requests.post(
+    "http://localhost:8000/api/v1/auth/login",
+    data={"username": "admin", "password": "admin123"}
+)
+token = response.json()["data"]["access_token"]
+
+# 使用Token访问API
+headers = {"Authorization": f"Bearer {token}"}
+response = requests.get(
+    "http://localhost:8000/api/v1/talents",
+    headers=headers
+)
+print(response.json())
+```
+
+### JavaScript 示例
+
+```javascript
+// 登录获取Token
+const loginRes = await fetch('http://localhost:8000/api/v1/auth/login', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: 'username=admin&password=admin123'
+});
+const {data: {access_token}} = await loginRes.json();
+
+// 使用Token访问API
+const res = await fetch('http://localhost:8000/api/v1/talents', {
+    headers: {'Authorization': `Bearer ${access_token}`}
+});
+const data = await res.json();
+console.log(data);
 ```

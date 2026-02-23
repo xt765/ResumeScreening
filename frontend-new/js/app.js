@@ -156,7 +156,8 @@ const Router = {
      */
     handleRouteChange() {
         const hash = window.location.hash.slice(1) || '/dashboard';
-        const page = hash.replace('/', '') || 'dashboard';
+        const fullPath = hash.replace('/', '') || 'dashboard';
+        const [page, queryString] = fullPath.split('?');
         
         if (page === AppState.currentPage) {
             return;

@@ -1030,12 +1030,23 @@ const AnalysisPage = {
                             ${metadata.work_years !== undefined ? `<span class="detail-item"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>${metadata.work_years}年经验</span>` : ''}
                             ${metadata.position ? `<span class="detail-item"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>${this.escapeHtml(metadata.position)}</span>` : ''}
                         </div>
-                        ${metadata.skills && metadata.skills.length > 0 ? `
-                            <div class="candidate-skills">
-                                ${metadata.skills.slice(0, 5).map(skill => `<span class="skill-tag">${this.escapeHtml(skill)}</span>`).join('')}
-                                ${metadata.skills.length > 5 ? `<span class="skill-more">+${metadata.skills.length - 5}</span>` : ''}
-                            </div>
-                        ` : ''}
+                        ${(() => {
+                            let skills = metadata.skills;
+                            if (typeof skills === 'string' && skills) {
+                                skills = skills.split(',').map(s => s.trim()).filter(s => s);
+                            } else if (!Array.isArray(skills)) {
+                                skills = [];
+                            }
+                            if (skills.length > 0) {
+                                return `
+                                    <div class="candidate-skills">
+                                        ${skills.slice(0, 5).map(skill => `<span class="skill-tag">${this.escapeHtml(skill)}</span>`).join('')}
+                                        ${skills.length > 5 ? `<span class="skill-more">+${skills.length - 5}</span>` : ''}
+                                    </div>
+                                `;
+                            }
+                            return '';
+                        })()}
                     </div>
                     <div class="candidate-score ${similarityClass}">
                         <div class="score-circle">
