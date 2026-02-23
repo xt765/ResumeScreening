@@ -19,6 +19,7 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+*.pyc
 
 # Virtual Environment
 .venv/
@@ -32,6 +33,12 @@ env/
 *.swp
 *.swo
 *~
+.trae/
+
+# Linter/Formatter Cache
+.ruff_cache/
+.mypy_cache/
+.basedpyright/
 
 # Testing
 .pytest_cache/
@@ -67,6 +74,9 @@ Thumbs.db
 
 # ChromaDB
 data/chroma/
+
+# Node modules (if any frontend build)
+node_modules/
 
 # Lock files (optional, uncomment if needed)
 # uv.lock
