@@ -1027,7 +1027,7 @@ const AnalysisPage = {
                         </div>
                         <div class="candidate-details">
                             ${metadata.school ? `<span class="detail-item"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>${this.escapeHtml(metadata.school)}</span>` : ''}
-                            ${data.work_years !== undefined ? `<span class="detail-item"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>${metadata.work_years}年经验</span>` : ''}
+                            ${metadata.work_years !== undefined ? `<span class="detail-item"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>${metadata.work_years}年经验</span>` : ''}
                             ${metadata.position ? `<span class="detail-item"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>${this.escapeHtml(metadata.position)}</span>` : ''}
                         </div>
                         ${(() => {
@@ -1171,11 +1171,6 @@ const AnalysisPage = {
     },
 
     showTalentDetailModal(talent) {
-        const existingModal = document.getElementById('talentDetailModal');
-        if (existingModal) {
-            existingModal.remove();
-        }
-
         const data = talent.metadata || talent;
         let skills = data.skills;
         if (typeof skills === 'string' && skills) {
@@ -1184,112 +1179,104 @@ const AnalysisPage = {
             skills = [];
         }
 
-        const modal = document.createElement('div');
-        modal.id = 'talentDetailModal';
-        modal.className = 'modal-overlay';
-        modal.innerHTML = `
-            <div class="modal-content talent-detail-modal">
-                <div class="modal-header">
-                    <h3 class="modal-title">${this.escapeHtml(data.name || '未知')}</h3>
-                    <button class="modal-close" onclick="AnalysisPage.closeTalentDetailModal()">×</button>
+        const education = this.getEducationLabel(data.education_level) || data.education_level || '-';
+        const statusBadge = data.screening_status === 'qualified' 
+            ? '<span class="badge badge-success">通过</span>'
+            : (data.screening_status === 'disqualified' 
+                ? '<span class="badge badge-danger">未通过</span>' 
+                : '<span class="badge badge-warning">待筛选</span>');
+
+        const photoUrl = data.id ? `http://localhost:8000/api/v1/talents/${data.id}/photo` : '';
+        const avatarContent = photoUrl 
+            ? `<img src="${photoUrl}" alt="头像" class="avatar-image" onerror="this.style.display='none';this.nextElementSibling.style.display='block';">
+               <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" style="display:none;">
+                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                   <circle cx="12" cy="7" r="4"/>
+               </svg>`
+            : `<svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
+                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                   <circle cx="12" cy="7" r="4"/>
+               </svg>`;
+
+        const content = `
+            <div class="talent-detail">
+                <div class="detail-header">
+                    <div class="detail-avatar">
+                        ${avatarContent}
+                    </div>
+                    <div class="detail-info">
+                        <h3 class="detail-name">${this.escapeHtml(data.name || '未知')}</h3>
+                        <div class="detail-meta">
+                            <span>${education}</span>
+                            <span class="separator">|</span>
+                            <span>${this.escapeHtml(data.school || '-')}</span>
+                            <span class="separator">|</span>
+                            <span>${this.escapeHtml(data.major || '-')}</span>
+                        </div>
+                    </div>
+                    <div class="detail-status">${statusBadge}</div>
                 </div>
-                <div class="modal-body">
-                    <div class="detail-header">
-                        <div class="detail-title-row">
-                            <span class="detail-education" style="color: ${this.educationColors[this.getEducationLabel(data.education_level)] || '#374151'}">
-                                ${this.getEducationLabel(data.education_level) || '-'}
-                            </span>
-                            <span class="detail-divider">|</span>
-                            <span class="detail-school">${this.escapeHtml(data.school || '-')}</span>
-                            <span class="detail-divider">|</span>
-                            <span class="detail-major">${this.escapeHtml(data.major || '-')}</span>
-                        </div>
-                        <span class="detail-status status-${this.getScreeningStatusClass(data.screening_status)}">
-                            ${this.getScreeningStatusLabel(data.screening_status)}
-                        </span>
-                    </div>
 
-                    <div class="detail-section">
-                        <h4 class="section-title">基本信息</h4>
-                        <div class="detail-grid">
-                            <div class="detail-item">
-                                <span class="detail-label">联系电话</span>
-                                <span class="detail-value">${this.escapeHtml(data.phone || '-')}</span>
-                            </div>
-                            <div class="detail-item">
-                                <span class="detail-label">电子邮箱</span>
-                                <span class="detail-value">${this.escapeHtml(data.email || '-')}</span>
-                            </div>
-                            <div class="detail-item">
-                                <span class="detail-label">工作年限</span>
-                                <span class="detail-value">${data.work_years !== undefined ? data.work_years + ' 年' : '-'}</span>
-                            </div>
-                            <div class="detail-item">
-                                <span class="detail-label">应聘岗位</span>
-                                <span class="detail-value">${this.escapeHtml(data.position || '-')}</span>
-                            </div>
+                <div class="detail-section">
+                    <h4 class="section-title">基本信息</h4>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <span class="detail-label">联系电话</span>
+                            <span class="detail-value">${this.escapeHtml(data.phone || '-')}</span>
                         </div>
-                    </div>
-
-                    ${skills.length > 0 ? `
-                        <div class="detail-section">
-                            <h4 class="section-title">技能标签</h4>
-                            <div class="skill-tags">
-                                ${skills.map(skill => `<span class="skill-tag">${this.escapeHtml(skill)}</span>`).join('')}
-                            </div>
+                        <div class="detail-item">
+                            <span class="detail-label">电子邮箱</span>
+                            <span class="detail-value">${this.escapeHtml(data.email || '-')}</span>
                         </div>
-                    ` : ''}
-
-                    <div class="detail-section">
-                        <h4 class="section-title">简历内容</h4>
-                        <div class="resume-content">
-                            ${this.escapeHtml(talent.content || talent.resume_text || '暂无简历内容').replace(/\n/g, '<br>')}
+                        <div class="detail-item">
+                            <span class="detail-label">工作年限</span>
+                            <span class="detail-value">${data.work_years !== undefined ? data.work_years + ' 年' : '-'}</span>
                         </div>
-                    </div>
-
-                    <div class="detail-section">
-                        <h4 class="section-title">筛选信息</h4>
-                        <div class="detail-grid">
-                            <div class="detail-item">
-                                <span class="detail-label">筛选状态</span>
-                                <span class="detail-value status-${this.getScreeningStatusClass(data.screening_status)}">
-                                    ${this.getScreeningStatusLabel(data.screening_status)}
-                                </span>
-                            </div>
-                            <div class="detail-item">
-                                <span class="detail-label">筛选日期</span>
-                                <span class="detail-value">${data.screening_date ? new Date(data.screening_date).toLocaleDateString() : '-'}</span>
-                            </div>
-                            <div class="detail-item">
-                                <span class="detail-label">创建时间</span>
-                                <span class="detail-value">${data.created_at ? new Date(data.created_at).toLocaleString() : '-'}</span>
-                            </div>
-                            <div class="detail-item">
-                                <span class="detail-label">更新时间</span>
-                                <span class="detail-value">${data.updated_at ? new Date(data.updated_at).toLocaleString() : '-'}</span>
-                            </div>
+                        <div class="detail-item">
+                            <span class="detail-label">毕业日期</span>
+                            <span class="detail-value">${data.graduation_date || '-'}</span>
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button class="btn btn-outline" onclick="AnalysisPage.closeTalentDetailModal()">关闭</button>
+
+                <div class="detail-section">
+                    <h4 class="section-title">技能标签</h4>
+                    <div class="skill-tags">
+                        ${skills.length > 0 
+                            ? skills.map(skill => `<span class="skill-tag">${this.escapeHtml(skill)}</span>`).join('') 
+                            : '<span class="text-muted">暂无技能信息</span>'}
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <h4 class="section-title">筛选信息</h4>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <span class="detail-label">筛选状态</span>
+                            <span class="detail-value">${statusBadge}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">筛选日期</span>
+                            <span class="detail-value">${UI.formatDateTime(data.screening_date, false)}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">创建时间</span>
+                            <span class="detail-value">${UI.formatDateTime(data.created_at)}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">更新时间</span>
+                            <span class="detail-value">${UI.formatDateTime(data.updated_at)}</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         `;
 
-        document.body.appendChild(modal);
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                this.closeTalentDetailModal();
-            }
-        });
+        UI.showModal('人才详情', content, '', 'lg');
     },
 
     closeTalentDetailModal() {
-        const modal = document.getElementById('talentDetailModal');
-        if (modal) {
-            modal.remove();
-        }
+        UI.closeModal();
     },
 
     /**
@@ -1857,165 +1844,6 @@ if (!document.getElementById('analysis-styles')) {
     .analysis-page .btn-outline:hover {
         border-color: var(--primary-color, #3b82f6);
         color: var(--primary-color, #3b82f6);
-    }
-
-    .talent-detail-modal {
-        max-width: 800px;
-        max-height: 90vh;
-        overflow-y: auto;
-    }
-
-    .talent-detail-modal .modal-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 20px 24px;
-        border-bottom: 1px solid var(--border-color, #e5e7eb);
-    }
-
-    .talent-detail-modal .modal-title {
-        font-size: 20px;
-        font-weight: 600;
-        margin: 0;
-        color: var(--text-primary);
-    }
-
-    .talent-detail-modal .modal-close {
-        background: none;
-        border: none;
-        font-size: 24px;
-        cursor: pointer;
-        color: var(--text-secondary);
-        padding: 0;
-        line-height: 1;
-    }
-
-    .talent-detail-modal .modal-close:hover {
-        color: var(--text-primary);
-    }
-
-    .talent-detail-modal .modal-body {
-        padding: 24px;
-    }
-
-    .talent-detail-modal .detail-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 24px;
-        padding-bottom: 16px;
-        border-bottom: 1px solid var(--border-color, #e5e7eb);
-    }
-
-    .talent-detail-modal .detail-title-row {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 14px;
-    }
-
-    .talent-detail-modal .detail-education {
-        font-weight: 600;
-    }
-
-    .talent-detail-modal .detail-divider {
-        color: var(--text-secondary);
-    }
-
-    .talent-detail-modal .detail-school,
-    .talent-detail-modal .detail-major {
-        color: var(--text-secondary);
-    }
-
-    .talent-detail-modal .detail-status {
-        padding: 4px 12px;
-        border-radius: 4px;
-        font-size: 12px;
-        font-weight: 500;
-    }
-
-    .talent-detail-modal .status-passed {
-        background: #dcfce7;
-        color: #16a34a;
-    }
-
-    .talent-detail-modal .status-failed {
-        background: #fee2e2;
-        color: #dc2626;
-    }
-
-    .talent-detail-modal .status-pending {
-        background: #fef3c7;
-        color: #d97706;
-    }
-
-    .talent-detail-modal .detail-section {
-        margin-bottom: 24px;
-    }
-
-    .talent-detail-modal .section-title {
-        font-size: 14px;
-        font-weight: 600;
-        color: var(--text-primary);
-        margin: 0 0 12px;
-        padding-bottom: 8px;
-        border-bottom: 1px solid var(--border-color, #e5e7eb);
-    }
-
-    .talent-detail-modal .detail-grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 16px;
-    }
-
-    .talent-detail-modal .detail-item {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-    }
-
-    .talent-detail-modal .detail-label {
-        font-size: 12px;
-        color: var(--text-secondary);
-    }
-
-    .talent-detail-modal .detail-value {
-        font-size: 14px;
-        color: var(--text-primary);
-    }
-
-    .talent-detail-modal .skill-tags {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-    }
-
-    .talent-detail-modal .skill-tag {
-        display: inline-block;
-        padding: 4px 12px;
-        background: #eff6ff;
-        color: #3b82f6;
-        border-radius: 4px;
-        font-size: 12px;
-    }
-
-    .talent-detail-modal .resume-content {
-        background: #f9fafb;
-        padding: 16px;
-        border-radius: 8px;
-        font-size: 13px;
-        line-height: 1.8;
-        color: var(--text-primary);
-        max-height: 300px;
-        overflow-y: auto;
-    }
-
-    .talent-detail-modal .modal-footer {
-        display: flex;
-        justify-content: flex-end;
-        gap: 12px;
-        padding: 16px 24px;
-        border-top: 1px solid var(--border-color, #e5e7eb);
     }
 
     @media (max-width: 1024px) {
