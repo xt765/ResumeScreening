@@ -1,0 +1,17 @@
+# ==================== 前端服务 Dockerfile ====================
+# 使用 Nginx 托管静态文件
+
+FROM nginx:alpine AS runner
+
+WORKDIR /usr/share/nginx/html
+
+COPY frontend-new/ .
+
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost/health || exit 1
+
+CMD ["nginx", "-g", "daemon off;"]

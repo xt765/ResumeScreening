@@ -2,6 +2,28 @@
 # 人才简历智能筛选系统
 
 services:
+  # ==================== 前端服务 ====================
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    image: resume-screening-frontend:latest
+    container_name: resume-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    networks:
+      - resume-network
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
   # ==================== 后端服务 ====================
   backend:
     build:
@@ -13,7 +35,6 @@ services:
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     environment:
-      # 应用配置
       - APP_DEBUG=${APP_DEBUG:-false}
       - APP_LOG_LEVEL=${APP_LOG_LEVEL:-INFO}
       - APP_LOG_DIR=/app/logs
@@ -21,39 +42,34 @@ services:
       - APP_MAX_UPLOAD_SIZE=${APP_MAX_UPLOAD_SIZE:-10485760}
       - APP_LLM_TIMEOUT=${APP_LLM_TIMEOUT:-30}
       - APP_LLM_MAX_RETRIES=${APP_LLM_MAX_RETRIES:-3}
-      # MySQL 配置
       - MYSQL_HOST=${MYSQL_HOST:-mysql}
       - MYSQL_PORT=${MYSQL_PORT:-3306}
       - MYSQL_USER=${MYSQL_USER:-root}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD:-root123}
       - MYSQL_DATABASE=${MYSQL_DATABASE:-resume_screening}
-      # MinIO 配置
       - MINIO_ENDPOINT=${MINIO_ENDPOINT:-minio:9000}
       - MINIO_CONSOLE_URL=${MINIO_CONSOLE_URL:-http://localhost:9001}
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
       - MINIO_BUCKET=${MINIO_BUCKET:-resume-images}
       - MINIO_SECURE=${MINIO_SECURE:-false}
-      # Redis 配置
       - REDIS_HOST=${REDIS_HOST:-redis}
       - REDIS_PORT=${REDIS_PORT:-6379}
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
       - REDIS_DB=${REDIS_DB:-0}
-      # ChromaDB 配置
       - CHROMA_PERSIST_DIR=/app/data/chroma
       - CHROMA_COLLECTION=${CHROMA_COLLECTION:-talent_resumes}
-      # DeepSeek LLM 配置
       - DS_API_KEY=${DS_API_KEY:-}
       - DS_BASE_URL=${DS_BASE_URL:-https://api.deepseek.com}
       - DS_MODEL=${DS_MODEL:-deepseek-chat}
-      # DashScope Embedding 配置
       - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY:-}
       - DASHSCOPE_BASE_URL=${DASHSCOPE_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
       - DASHSCOPE_EMBEDDING_MODEL=${DASHSCOPE_EMBEDDING_MODEL:-text-embedding-v3}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-resume-screening-jwt-secret-key-32bytes!}
+      - JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
+      - JWT_ACCESS_TOKEN_EXPIRE_MINUTES=${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
     volumes:
-      # 持久化日志
       - backend-logs:/app/logs
-      # 持久化 ChromaDB 数据
       - chroma-data:/app/data/chroma
     networks:
       - resume-network
@@ -65,7 +81,7 @@ services:
       minio:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health', timeout=5.0)"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -85,8 +101,6 @@ services:
       - MYSQL_COLLATION_SERVER=utf8mb4_unicode_ci
     volumes:
       - mysql-data:/var/lib/mysql
-      # 初始化脚本（如需要）
-      # - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - resume-network
     healthcheck:

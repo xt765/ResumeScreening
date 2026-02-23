@@ -452,38 +452,50 @@ async def batch_upload(
         failed_count = 0
         duplicate_count = 0
 
+        import hashlib
+
+        for file_data in file_data_list:
+            content_hash = hashlib.sha256(file_data["content"]).hexdigest()
+            file_data["content_hash"] = content_hash
+
+        existing_hashes: set[str] = set()
+        hash_to_talent: dict[str, dict[str, Any]] = {}
+
+        async with async_session_factory() as session:
+            hash_list = [fd["content_hash"] for fd in file_data_list]
+            existing_result = await session.execute(
+                select(TalentInfo).where(
+                    TalentInfo.content_hash.in_(hash_list),
+                    TalentInfo.is_deleted == False,  # noqa: E712
+                )
+            )
+            for talent in existing_result.scalars().all():
+                existing_hashes.add(talent.content_hash)
+                hash_to_talent[talent.content_hash] = {
+                    "id": talent.id,
+                    "name": talent.name,
+                }
+
         for idx, file_data in enumerate(file_data_list):
             filename = file_data["filename"]
             content = file_data["content"]
             file_ext = file_data["ext"]
+            content_hash = file_data["content_hash"]
 
             try:
-                # 计算内容哈希
-                import hashlib
-
-                content_hash = hashlib.sha256(content).hexdigest()
-
-                # 检查重复
-                async with async_session_factory() as session:
-                    existing_talent = await session.execute(
-                        select(TalentInfo).where(
-                            TalentInfo.content_hash == content_hash,
-                            TalentInfo.is_deleted == False,  # noqa: E712
-                        )
+                if content_hash in existing_hashes:
+                    existing = hash_to_talent[content_hash]
+                    results.append(
+                        {
+                            "filename": filename,
+                            "success": False,
+                            "error": "简历已存在",
+                            "is_duplicate": True,
+                            "talent_id": existing["id"],
+                        }
                     )
-                    existing = existing_talent.scalar_one_or_none()
-                    if existing:
-                        results.append(
-                            {
-                                "filename": filename,
-                                "success": False,
-                                "error": "简历已存在",
-                                "is_duplicate": True,
-                                "talent_id": existing.id,
-                            }
-                        )
-                        duplicate_count += 1
-                        continue
+                    duplicate_count += 1
+                    continue
 
                 # 保存临时文件
                 temp_fd, temp_path = tempfile.mkstemp(suffix=f".{file_ext}")
@@ -1468,6 +1480,120 @@ async def batch_update_status(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"批量更新状态失败: {e}",
+        ) from None
+
+
+@router.post(
+    "/sync-chroma",
+    response_model=APIResponse[dict[str, Any]],
+    summary="同步ChromaDB向量数据",
+    description="检查并修复MySQL与ChromaDB之间的数据不一致",
+)
+async def sync_chromadb(
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> APIResponse[dict[str, Any]]:
+    """同步 ChromaDB 向量数据。
+
+    检查 MySQL 中的人才记录与 ChromaDB 中的向量数据是否一致，
+    修复缺失或状态不一致的记录。
+
+    Args:
+        session: 数据库会话
+
+    Returns:
+        APIResponse[dict[str, Any]]: 同步结果
+
+    Raises:
+        HTTPException: 同步失败
+    """
+    logger.info("开始ChromaDB数据同步检查")
+
+    try:
+        result = await session.execute(
+            select(TalentInfo).where(TalentInfo.is_deleted == False)  # noqa: E712
+        )
+        mysql_talents = result.scalars().all()
+        mysql_ids = {t.id for t in mysql_talents}
+        mysql_status = {
+            t.id: t.screening_status.value if t.screening_status else "unknown"
+            for t in mysql_talents
+        }
+
+        chroma_result = chroma_client.get_documents()
+        chroma_ids = set(chroma_result.get("ids", []))
+        chroma_metadatas = chroma_result.get("metadatas", [])
+
+        chroma_status = {}
+        for i, tid in enumerate(chroma_result.get("ids", [])):
+            if i < len(chroma_metadatas):
+                meta = chroma_metadatas[i]
+                chroma_status[tid] = {
+                    "is_deleted": meta.get("is_deleted", False),
+                    "screening_status": meta.get("screening_status", "unknown"),
+                }
+
+        missing_in_chroma = mysql_ids - chroma_ids
+        extra_in_chroma = chroma_ids - mysql_ids
+        status_mismatch = []
+
+        for tid in mysql_ids & chroma_ids:
+            mysql_s = mysql_status.get(tid, "unknown")
+            chroma_s = chroma_status.get(tid, {}).get("screening_status", "unknown")
+            if mysql_s != chroma_s:
+                status_mismatch.append(tid)
+
+        sync_result = {
+            "mysql_count": len(mysql_ids),
+            "chroma_count": len(chroma_ids),
+            "missing_in_chroma": list(missing_in_chroma),
+            "extra_in_chroma": list(extra_in_chroma),
+            "status_mismatch": status_mismatch,
+        }
+
+        fixed_count = 0
+
+        for tid in extra_in_chroma:
+            try:
+                chroma_client.delete_documents(ids=[tid])
+                logger.info(f"删除ChromaDB中多余的向量: {tid}")
+                fixed_count += 1
+            except Exception as e:
+                logger.warning(f"删除多余向量失败: {tid}, error={e}")
+
+        for tid in status_mismatch:
+            try:
+                talent = next((t for t in mysql_talents if t.id == tid), None)
+                if talent:
+                    new_status = (
+                        "qualified"
+                        if talent.screening_status == ScreeningStatusEnum.QUALIFIED
+                        else "unqualified"
+                    )
+                    chroma_client.update_documents(
+                        ids=[tid],
+                        metadatas=[{"screening_status": new_status}],
+                    )
+                    logger.info(f"更新ChromaDB状态: {tid} -> {new_status}")
+                    fixed_count += 1
+            except Exception as e:
+                logger.warning(f"更新向量状态失败: {tid}, error={e}")
+
+        sync_result["fixed_count"] = fixed_count
+        sync_result["missing_need_manual"] = list(missing_in_chroma)
+
+        logger.success(f"ChromaDB同步完成: fixed={fixed_count}")
+
+        return APIResponse(
+            success=True,
+            message=f"同步完成，修复了 {fixed_count} 条记录",
+            data=sync_result,
+        )
+
+    except Exception as e:
+        logger.exception(f"ChromaDB同步失败: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"ChromaDB同步失败: {e}",
         ) from None
 
 
