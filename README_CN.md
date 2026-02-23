@@ -2,7 +2,7 @@
 
 # 简历智能筛选与管理系统
 
-**基于 LangChain + LangGraph + FastAPI 的企业级智能简历筛选平台，集成大语言模型实现简历智能解析、多条件筛选和 RAG 智能问答。**
+**基于 LangChain + LangGraph + FastAPI 的智能简历筛选平台，集成 LLM 实现智能解析、筛选和 RAG 问答。**
 
 🌐 **语言**: [English](README.md) | 中文
 

@@ -2,7 +2,7 @@
 
 # Resume Intelligent Screening System
 
-**An enterprise-level intelligent resume screening platform based on LangChain + LangGraph + FastAPI, integrated with LLM for intelligent resume parsing, multi-criteria screening, and RAG intelligent Q&A.**
+**An intelligent resume screening platform based on LangChain + LangGraph + FastAPI, with LLM for smart parsing, screening and RAG Q&A.**
 
 🌐 **Language**: English | [中文](README_CN.md)
 

@@ -1027,7 +1027,7 @@ const AnalysisPage = {
                         </div>
                         <div class="candidate-details">
                             ${metadata.school ? `<span class="detail-item"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>${this.escapeHtml(metadata.school)}</span>` : ''}
-                            ${metadata.work_years !== undefined ? `<span class="detail-item"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>${metadata.work_years}年经验</span>` : ''}
+                            ${data.work_years !== undefined ? `<span class="detail-item"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>${metadata.work_years}年经验</span>` : ''}
                             ${metadata.position ? `<span class="detail-item"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>${this.escapeHtml(metadata.position)}</span>` : ''}
                         </div>
                         ${(() => {
@@ -1214,19 +1214,19 @@ const AnalysisPage = {
                         <div class="detail-grid">
                             <div class="detail-item">
                                 <span class="detail-label">联系电话</span>
-                                <span class="detail-value">${this.escapeHtml(metadata.phone || '-')}</span>
+                                <span class="detail-value">${this.escapeHtml(data.phone || '-')}</span>
                             </div>
                             <div class="detail-item">
                                 <span class="detail-label">电子邮箱</span>
-                                <span class="detail-value">${this.escapeHtml(metadata.email || '-')}</span>
+                                <span class="detail-value">${this.escapeHtml(data.email || '-')}</span>
                             </div>
                             <div class="detail-item">
                                 <span class="detail-label">工作年限</span>
-                                <span class="detail-value">${metadata.work_years !== undefined ? metadata.work_years + ' 年' : '-'}</span>
+                                <span class="detail-value">${data.work_years !== undefined ? data.work_years + ' 年' : '-'}</span>
                             </div>
                             <div class="detail-item">
                                 <span class="detail-label">应聘岗位</span>
-                                <span class="detail-value">${this.escapeHtml(metadata.position || '-')}</span>
+                                <span class="detail-value">${this.escapeHtml(data.position || '-')}</span>
                             </div>
                         </div>
                     </div>
@@ -1243,7 +1243,7 @@ const AnalysisPage = {
                     <div class="detail-section">
                         <h4 class="section-title">简历内容</h4>
                         <div class="resume-content">
-                            ${this.escapeHtml(talent.content || '暂无简历内容').replace(/\n/g, '<br>')}
+                            ${this.escapeHtml(talent.content || talent.resume_text || '暂无简历内容').replace(/\n/g, '<br>')}
                         </div>
                     </div>
 
@@ -1252,21 +1252,21 @@ const AnalysisPage = {
                         <div class="detail-grid">
                             <div class="detail-item">
                                 <span class="detail-label">筛选状态</span>
-                                <span class="detail-value status-${this.getScreeningStatusClass(metadata.screening_status)}">
-                                    ${this.getScreeningStatusLabel(metadata.screening_status)}
+                                <span class="detail-value status-${this.getScreeningStatusClass(data.screening_status)}">
+                                    ${this.getScreeningStatusLabel(data.screening_status)}
                                 </span>
                             </div>
                             <div class="detail-item">
                                 <span class="detail-label">筛选日期</span>
-                                <span class="detail-value">${metadata.screened_at ? new Date(metadata.screened_at).toLocaleDateString() : '-'}</span>
+                                <span class="detail-value">${data.screening_date ? new Date(data.screening_date).toLocaleDateString() : '-'}</span>
                             </div>
                             <div class="detail-item">
                                 <span class="detail-label">创建时间</span>
-                                <span class="detail-value">${metadata.created_at ? new Date(metadata.created_at).toLocaleString() : '-'}</span>
+                                <span class="detail-value">${data.created_at ? new Date(data.created_at).toLocaleString() : '-'}</span>
                             </div>
                             <div class="detail-item">
                                 <span class="detail-label">更新时间</span>
-                                <span class="detail-value">${metadata.updated_at ? new Date(metadata.updated_at).toLocaleString() : '-'}</span>
+                                <span class="detail-value">${data.updated_at ? new Date(data.updated_at).toLocaleString() : '-'}</span>
                             </div>
                         </div>
                     </div>
