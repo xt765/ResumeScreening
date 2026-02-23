@@ -473,6 +473,17 @@ const TalentsPage = {
                 });
             }
         });
+
+        this.checkUrlParams();
+    },
+
+    checkUrlParams() {
+        const hash = window.location.hash;
+        const match = hash.match(/[?&]id=([^&]+)/);
+        if (match) {
+            const talentId = match[1];
+            setTimeout(() => this.showDetail(talentId), 500);
+        }
     },
 
     toggleSelectAll() {

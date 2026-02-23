@@ -2,6 +2,8 @@
 
 > 基于 LangChain + LangGraph + FastAPI 的企业级智能简历筛选平台，集成大语言模型实现简历智能解析、多条件筛选和 RAG 智能问答。
 
+<div align="center">
+
 [![CSDN Blog](https://img.shields.io/badge/CSDN-玄同765-orange?style=flat-square&logo=csdn)](https://blog.csdn.net/Yunyi_Chi)
 [![GitHub](https://img.shields.io/badge/GitHub-ResumeScreening-black?style=flat-square&logo=github)](https://github.com/xt765/ResumeScreening)
 [![Gitee](https://img.shields.io/badge/Gitee-ResumeScreening-red?style=flat-square&logo=gitee)](https://gitee.com/xt765/resume-screening)
@@ -11,6 +13,8 @@
 ![Basedpyright](https://img.shields.io/badge/Basedpyright-TypeCheck-purple?style=flat-square)
 ![Docker](https://img.shields.io/badge/Docker-Containerized-blue?style=flat-square&logo=docker)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
+
+</div>
 
 ## 项目背景
 
