@@ -1176,8 +1176,8 @@ const AnalysisPage = {
             existingModal.remove();
         }
 
-        const metadata = talent.metadata || {};
-        let skills = metadata.skills;
+        const data = talent.metadata || talent;
+        let skills = data.skills;
         if (typeof skills === 'string' && skills) {
             skills = skills.split(',').map(s => s.trim()).filter(s => s);
         } else if (!Array.isArray(skills)) {
@@ -1190,22 +1190,22 @@ const AnalysisPage = {
         modal.innerHTML = `
             <div class="modal-content talent-detail-modal">
                 <div class="modal-header">
-                    <h3 class="modal-title">${this.escapeHtml(metadata.name || '未知')}</h3>
+                    <h3 class="modal-title">${this.escapeHtml(data.name || '未知')}</h3>
                     <button class="modal-close" onclick="AnalysisPage.closeTalentDetailModal()">×</button>
                 </div>
                 <div class="modal-body">
                     <div class="detail-header">
                         <div class="detail-title-row">
-                            <span class="detail-education" style="color: ${this.educationColors[this.getEducationLabel(metadata.education_level)] || '#374151'}">
-                                ${this.getEducationLabel(metadata.education_level) || '-'}
+                            <span class="detail-education" style="color: ${this.educationColors[this.getEducationLabel(data.education_level)] || '#374151'}">
+                                ${this.getEducationLabel(data.education_level) || '-'}
                             </span>
                             <span class="detail-divider">|</span>
-                            <span class="detail-school">${this.escapeHtml(metadata.school || '-')}</span>
+                            <span class="detail-school">${this.escapeHtml(data.school || '-')}</span>
                             <span class="detail-divider">|</span>
-                            <span class="detail-major">${this.escapeHtml(metadata.major || '-')}</span>
+                            <span class="detail-major">${this.escapeHtml(data.major || '-')}</span>
                         </div>
-                        <span class="detail-status status-${this.getScreeningStatusClass(metadata.screening_status)}">
-                            ${this.getScreeningStatusLabel(metadata.screening_status)}
+                        <span class="detail-status status-${this.getScreeningStatusClass(data.screening_status)}">
+                            ${this.getScreeningStatusLabel(data.screening_status)}
                         </span>
                     </div>
 

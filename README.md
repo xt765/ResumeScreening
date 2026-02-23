@@ -2,13 +2,9 @@
 
 # Resume Intelligent Screening System
 
-</div>
-
 **An enterprise-level intelligent resume screening platform based on LangChain + LangGraph + FastAPI, integrated with LLM for intelligent resume parsing, multi-criteria screening, and RAG intelligent Q&A.**
 
 🌐 **Language**: English | [中文](README_CN.md)
-
-<div align="center">
 
 [![CSDN Blog](https://img.shields.io/badge/CSDN-玄同765-orange?style=flat-square&logo=csdn)](https://blog.csdn.net/Yunyi_Chi)
 [![GitHub](https://img.shields.io/badge/GitHub-ResumeScreening-black?style=flat-square&logo=github)](https://github.com/xt765/ResumeScreening)
