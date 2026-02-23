@@ -1135,8 +1135,143 @@ const AnalysisPage = {
      * 查看人才详情
      * @param {string} talentId - 人才ID
      */
-    viewTalentDetail(talentId) {
-        window.location.hash = `/talents?id=${talentId}`;
+    async viewTalentDetail(talentId) {
+        try {
+            UI.showLoading();
+            const response = await talentsApi.getDetail(talentId);
+            if (response.success) {
+                this.showTalentDetailModal(response.data);
+            } else {
+                UI.toast('获取人才详情失败', 'error');
+            }
+        } catch (error) {
+            console.error('获取人才详情失败:', error);
+            UI.toast(error.message || '获取人才详情失败', 'error');
+        } finally {
+            UI.hideLoading();
+        }
+    },
+
+    showTalentDetailModal(talent) {
+        const existingModal = document.getElementById('talentDetailModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        const metadata = talent.metadata || {};
+        let skills = metadata.skills;
+        if (typeof skills === 'string' && skills) {
+            skills = skills.split(',').map(s => s.trim()).filter(s => s);
+        } else if (!Array.isArray(skills)) {
+            skills = [];
+        }
+
+        const modal = document.createElement('div');
+        modal.id = 'talentDetailModal';
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal-content talent-detail-modal">
+                <div class="modal-header">
+                    <h3 class="modal-title">${this.escapeHtml(metadata.name || '未知')}</h3>
+                    <button class="modal-close" onclick="AnalysisPage.closeTalentDetailModal()">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="detail-header">
+                        <div class="detail-title-row">
+                            <span class="detail-education" style="color: ${this.educationColors[this.getEducationLabel(metadata.education_level)] || '#374151'}">
+                                ${this.getEducationLabel(metadata.education_level) || '-'}
+                            </span>
+                            <span class="detail-divider">|</span>
+                            <span class="detail-school">${this.escapeHtml(metadata.school || '-')}</span>
+                            <span class="detail-divider">|</span>
+                            <span class="detail-major">${this.escapeHtml(metadata.major || '-')}</span>
+                        </div>
+                        <span class="detail-status status-${metadata.screening_status || 'pending'}">
+                            ${metadata.screening_status === 'passed' ? '通过' : metadata.screening_status === 'failed' ? '未通过' : '待筛选'}
+                        </span>
+                    </div>
+
+                    <div class="detail-section">
+                        <h4 class="section-title">基本信息</h4>
+                        <div class="detail-grid">
+                            <div class="detail-item">
+                                <span class="detail-label">联系电话</span>
+                                <span class="detail-value">${this.escapeHtml(metadata.phone || '-')}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">电子邮箱</span>
+                                <span class="detail-value">${this.escapeHtml(metadata.email || '-')}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">工作年限</span>
+                                <span class="detail-value">${metadata.work_years !== undefined ? metadata.work_years + ' 年' : '-'}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">应聘岗位</span>
+                                <span class="detail-value">${this.escapeHtml(metadata.position || '-')}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    ${skills.length > 0 ? `
+                        <div class="detail-section">
+                            <h4 class="section-title">技能标签</h4>
+                            <div class="skill-tags">
+                                ${skills.map(skill => `<span class="skill-tag">${this.escapeHtml(skill)}</span>`).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <div class="detail-section">
+                        <h4 class="section-title">简历内容</h4>
+                        <div class="resume-content">
+                            ${this.escapeHtml(talent.content || '暂无简历内容').replace(/\n/g, '<br>')}
+                        </div>
+                    </div>
+
+                    <div class="detail-section">
+                        <h4 class="section-title">筛选信息</h4>
+                        <div class="detail-grid">
+                            <div class="detail-item">
+                                <span class="detail-label">筛选状态</span>
+                                <span class="detail-value status-${metadata.screening_status || 'pending'}">
+                                    ${metadata.screening_status === 'passed' ? '通过' : metadata.screening_status === 'failed' ? '未通过' : '待筛选'}
+                                </span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">筛选日期</span>
+                                <span class="detail-value">${metadata.screened_at ? new Date(metadata.screened_at).toLocaleDateString() : '-'}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">创建时间</span>
+                                <span class="detail-value">${metadata.created_at ? new Date(metadata.created_at).toLocaleString() : '-'}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">更新时间</span>
+                                <span class="detail-value">${metadata.updated_at ? new Date(metadata.updated_at).toLocaleString() : '-'}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline" onclick="AnalysisPage.closeTalentDetailModal()">关闭</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                this.closeTalentDetailModal();
+            }
+        });
+    },
+
+    closeTalentDetailModal() {
+        const modal = document.getElementById('talentDetailModal');
+        if (modal) {
+            modal.remove();
+        }
     },
 
     /**
@@ -1704,6 +1839,165 @@ if (!document.getElementById('analysis-styles')) {
     .analysis-page .btn-outline:hover {
         border-color: var(--primary-color, #3b82f6);
         color: var(--primary-color, #3b82f6);
+    }
+
+    .talent-detail-modal {
+        max-width: 800px;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    .talent-detail-modal .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--border-color, #e5e7eb);
+    }
+
+    .talent-detail-modal .modal-title {
+        font-size: 20px;
+        font-weight: 600;
+        margin: 0;
+        color: var(--text-primary);
+    }
+
+    .talent-detail-modal .modal-close {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: var(--text-secondary);
+        padding: 0;
+        line-height: 1;
+    }
+
+    .talent-detail-modal .modal-close:hover {
+        color: var(--text-primary);
+    }
+
+    .talent-detail-modal .modal-body {
+        padding: 24px;
+    }
+
+    .talent-detail-modal .detail-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--border-color, #e5e7eb);
+    }
+
+    .talent-detail-modal .detail-title-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+    }
+
+    .talent-detail-modal .detail-education {
+        font-weight: 600;
+    }
+
+    .talent-detail-modal .detail-divider {
+        color: var(--text-secondary);
+    }
+
+    .talent-detail-modal .detail-school,
+    .talent-detail-modal .detail-major {
+        color: var(--text-secondary);
+    }
+
+    .talent-detail-modal .detail-status {
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+
+    .talent-detail-modal .status-passed {
+        background: #dcfce7;
+        color: #16a34a;
+    }
+
+    .talent-detail-modal .status-failed {
+        background: #fee2e2;
+        color: #dc2626;
+    }
+
+    .talent-detail-modal .status-pending {
+        background: #fef3c7;
+        color: #d97706;
+    }
+
+    .talent-detail-modal .detail-section {
+        margin-bottom: 24px;
+    }
+
+    .talent-detail-modal .section-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin: 0 0 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border-color, #e5e7eb);
+    }
+
+    .talent-detail-modal .detail-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+    }
+
+    .talent-detail-modal .detail-item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .talent-detail-modal .detail-label {
+        font-size: 12px;
+        color: var(--text-secondary);
+    }
+
+    .talent-detail-modal .detail-value {
+        font-size: 14px;
+        color: var(--text-primary);
+    }
+
+    .talent-detail-modal .skill-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .talent-detail-modal .skill-tag {
+        display: inline-block;
+        padding: 4px 12px;
+        background: #eff6ff;
+        color: #3b82f6;
+        border-radius: 4px;
+        font-size: 12px;
+    }
+
+    .talent-detail-modal .resume-content {
+        background: #f9fafb;
+        padding: 16px;
+        border-radius: 8px;
+        font-size: 13px;
+        line-height: 1.8;
+        color: var(--text-primary);
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    .talent-detail-modal .modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        padding: 16px 24px;
+        border-top: 1px solid var(--border-color, #e5e7eb);
     }
 
     @media (max-width: 1024px) {
