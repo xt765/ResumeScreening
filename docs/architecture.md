@@ -29,54 +29,18 @@
 
 ### 2.1 整体架构图
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                              用户层                                      │
-│                     浏览器 (HTML/CSS/JavaScript)                         │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                             网关层                                       │
-│                    Nginx (反向代理 + 静态资源)                            │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    │
-                    ┌───────────────┴───────────────┐
-                    ▼                               ▼
-┌───────────────────────────┐       ┌───────────────────────────┐
-│        REST API           │       │       WebSocket           │
-│    (FastAPI Backend)      │       │    (实时进度推送)          │
-└───────────────────────────┘       └───────────────────────────┘
-                    │
-                    ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           业务逻辑层                                     │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐      │
-│  │ Auth Module │ │Talent Module│ │Analysis Svc │ │Monitor Svc  │      │
-│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘      │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         工作流引擎层 (LangGraph)                          │
-│                                                                          │
-│   ┌──────────────┐    ┌──────────────┐    ┌──────────────┐            │
-│   │ParseExtract  │───▶│   Filter     │───▶│    Store     │            │
-│   │    Node      │    │    Node      │    │    Node      │            │
-│   └──────────────┘    └──────────────┘    └──────────────┘            │
-│                              │                                           │
-│                              ▼                                           │
-│                      ┌──────────────┐                                   │
-│                      │ Cache Node   │                                   │
-│                      └──────────────┘                                   │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    │
-        ┌───────────────┬───────────┼───────────┬───────────────┐
-        ▼               ▼           ▼           ▼               ▼
-┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-│    MySQL     │ │    Redis     │ │    MinIO     │ │   ChromaDB   │
-│  (关系数据)   │ │   (缓存)     │ │  (图片存储)   │ │  (向量存储)   │
-└──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
+```mermaid
+graph TB
+    A[浏览器<br/>HTML/CSS/JS] --> B[Nginx<br/>反向代理]
+    B --> C[REST API<br/>FastAPI]
+    B --> D[WebSocket<br/>实时推送]
+    C --> E[业务逻辑层]
+    D --> E
+    E --> F{LangGraph 工作流}
+    F --> G[(MySQL<br/>关系数据)]
+    F --> H[(Redis<br/>缓存)]
+    F --> I[(MinIO<br/>图片存储)]
+    F --> J[(ChromaDB<br/>向量存储)]
 ```
 
 ### 2.2 核心模块架构
@@ -124,47 +88,28 @@ src/storage/
 
 系统采用 LangGraph 构建 4 节点状态图工作流：
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        简历处理工作流                             │
-│                                                                  │
-│  ┌──────────────────┐                                           │
-│  │   START          │                                           │
-│  └────────┬─────────┘                                           │
-│           │                                                      │
-│           ▼                                                      │
-│  ┌──────────────────┐                                           │
-│  │ ParseExtractNode │  1. 解析文档 (PDF/DOCX)                    │
-│  │                  │  2. 提取文本和图片                          │
-│  │                  │  3. LLM 提取候选人信息                      │
-│  └────────┬─────────┘                                           │
-│           │                                                      │
-│           ▼                                                      │
-│  ┌──────────────────┐                                           │
-│  │   FilterNode     │  1. 获取筛选条件                           │
-│  │                  │  2. LLM 判断是否符合条件                    │
-│  │                  │  3. 生成筛选原因                           │
-│  └────────┬─────────┘                                           │
-│           │                                                      │
-│           ▼                                                      │
-│  ┌──────────────────┐                                           │
-│  │    StoreNode     │  1. 保存人才信息到 MySQL                   │
-│  │                  │  2. 上传照片到 MinIO                       │
-│  │                  │  3. 存储向量到 ChromaDB                    │
-│  └────────┬─────────┘                                           │
-│           │                                                      │
-│           ▼                                                      │
-│  ┌──────────────────┐                                           │
-│  │    CacheNode     │  1. 缓存结果到 Redis                       │
-│  │                  │  2. 更新任务状态                           │
-│  └────────┬─────────┘                                           │
-│           │                                                      │
-│           ▼                                                      │
-│  ┌──────────────────┐                                           │
-│  │      END         │                                           │
-│  └──────────────────┘                                           │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    A([START]) --> B[ParseExtractNode<br/>解析提取节点]
+    B --> C[FilterNode<br/>筛选判断节点]
+    C --> D[StoreNode<br/>数据存储节点]
+    D --> E[CacheNode<br/>结果缓存节点]
+    E --> F([END])
+    
+    B --> B1[解析文档 PDF/DOCX]
+    B --> B2[提取文本和图片]
+    B --> B3[LLM 提取候选人信息]
+    
+    C --> C1[获取筛选条件]
+    C --> C2[LLM 判断是否符合条件]
+    C --> C3[生成筛选原因]
+    
+    D --> D1[保存人才信息到 MySQL]
+    D --> D2[上传照片到 MinIO]
+    D --> D3[存储向量到 ChromaDB]
+    
+    E --> E1[缓存结果到 Redis]
+    E --> E2[更新任务状态]
 ```
 
 ### 3.2 状态定义
@@ -264,27 +209,50 @@ class ResumeState(BaseModel):
 
 ### 4.1 ER 图
 
-```
-┌──────────────────┐     ┌──────────────────┐     ┌──────────────────┐
-│    User          │     │   TalentInfo     │     │   Condition      │
-├──────────────────┤     ├──────────────────┤     ├──────────────────┤
-│ id (PK)          │     │ id (PK)          │     │ id (PK)          │
-│ username         │     │ name             │     │ name             │
-│ password_hash    │     │ phone (加密)      │     │ conditions (JSON)│
-│ email            │     │ email (加密)      │     │ description      │
-│ role             │     │ education_level  │     │ created_at       │
-│ is_active        │     │ school           │     │ updated_at       │
-│ created_at       │     │ major            │     │ is_deleted       │
-│ updated_at       │     │ work_years       │     └──────────────────┘
-└──────────────────┘     │ skills (JSON)    │
-                         │ work_experience  │
-                         │ projects         │
-                         │ screening_status │
-                         │ content_hash     │
-                         │ created_at       │
-                         │ updated_at       │
-                         │ is_deleted       │
-                         └──────────────────┘
+```mermaid
+erDiagram
+    User ||--o{ TalentInfo : manages
+    Condition ||--o{ TalentInfo : filters
+    
+    User {
+        string id PK
+        string username UK
+        string password_hash
+        string email
+        string role
+        boolean is_active
+        datetime created_at
+        datetime updated_at
+    }
+    
+    TalentInfo {
+        string id PK
+        string name
+        string phone
+        string email
+        string education_level
+        string school
+        string major
+        int work_years
+        json skills
+        json work_experience
+        json projects
+        string screening_status
+        string content_hash
+        datetime created_at
+        datetime updated_at
+        boolean is_deleted
+    }
+    
+    Condition {
+        string id PK
+        string name
+        json conditions
+        string description
+        datetime created_at
+        datetime updated_at
+        boolean is_deleted
+    }
 ```
 
 ### 4.2 核心表结构

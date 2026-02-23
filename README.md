@@ -13,52 +13,32 @@
 
 ## 技术栈
 
-| 类别 | 技术 | 版本 |
-|------|------|------|
-| 后端框架 | FastAPI | >=0.120.0 |
-| LLM 框架 | LangChain | >=1.2.0 |
-| 工作流引擎 | LangGraph | >=1.0.0 |
-| 数据库 | MySQL 8.0 | - |
-| 缓存 | Redis 7 | - |
-| 对象存储 | MinIO | - |
-| 向量数据库 | ChromaDB | >=0.5.0 |
-| LLM | DeepSeek | - |
-| Embedding | DashScope | - |
+| 类别       | 技术      | 版本      |
+| ---------- | --------- | --------- |
+| 后端框架   | FastAPI   | >=0.120.0 |
+| LLM 框架   | LangChain | >=1.2.0   |
+| 工作流引擎 | LangGraph | >=1.0.0   |
+| 数据库     | MySQL 8.0 | -         |
+| 缓存       | Redis 7   | -         |
+| 对象存储   | MinIO     | -         |
+| 向量数据库 | ChromaDB  | >=0.5.0   |
+| LLM        | DeepSeek  | -         |
+| Embedding  | DashScope | -         |
 
 ## 系统架构
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        前端 (HTML/CSS/JS)                     │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                     FastAPI 后端服务                          │
-│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐           │
-│  │ Auth    │ │ Talents │ │Analysis │ │ Monitor │           │
-│  └─────────┘ └─────────┘ └─────────┘ └─────────┘           │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   LangGraph 工作流引擎                        │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐        │
-│  │ParseExtract  │ → │   Filter    │ → │    Store    │       │
-│  │    Node      │   │    Node     │   │    Node     │       │
-│  └──────────────┘ └──────────────┘ └──────────────┘        │
-│                              ↓                               │
-│                     ┌──────────────┐                        │
-│                     │ Cache Node   │                        │
-│                     └──────────────┘                        │
-└─────────────────────────────────────────────────────────────┘
-                              │
-        ┌─────────────────────┼─────────────────────┐
-        ▼                     ▼                     ▼
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│    MySQL     │     │    MinIO     │     │   ChromaDB   │
-│  (关系数据)   │     │  (图片存储)   │     │  (向量存储)   │
-└──────────────┘     └──────────────┘     └──────────────┘
+```mermaid
+graph TB
+    A[浏览器<br/>HTML/CSS/JS] --> B[FastAPI 后端服务]
+    B --> C{LangGraph 工作流}
+    C --> D[ParseExtractNode<br/>解析提取]
+    D --> E[FilterNode<br/>筛选判断]
+    E --> F[StoreNode<br/>数据存储]
+    F --> G[CacheNode<br/>结果缓存]
+    F --> H[(MySQL)]
+    F --> I[(MinIO)]
+    F --> J[(ChromaDB)]
+    G --> K[(Redis)]
 ```
 
 ## 快速开始
@@ -114,12 +94,12 @@ docker-compose logs -f backend
 
 ### 访问地址
 
-| 服务 | 地址 |
-|------|------|
-| 前端界面 | http://localhost:3000 |
-| API 文档 | http://localhost:8000/docs |
-| ReDoc 文档 | http://localhost:8000/redoc |
-| MinIO 控制台 | http://localhost:9001 |
+| 服务         | 地址                        |
+| ------------ | --------------------------- |
+| 前端界面     | http://localhost:3000       |
+| API 文档     | http://localhost:8000/docs  |
+| ReDoc 文档   | http://localhost:8000/redoc |
+| MinIO 控制台 | http://localhost:9001       |
 
 ## 项目结构
 
@@ -165,32 +145,32 @@ ResumeScreening/
 
 系统采用 LangGraph 构建 4 节点工作流：
 
-| 节点 | 功能 |
-|------|------|
-| ParseExtractNode | 文档解析、文本提取、LLM 实体提取 |
-| FilterNode | LLM 条件筛选判断 |
-| StoreNode | MySQL 存储、MinIO 图片存储、ChromaDB 向量存储 |
-| CacheNode | Redis 缓存结果 |
+| 节点             | 功能                                          |
+| ---------------- | --------------------------------------------- |
+| ParseExtractNode | 文档解析、文本提取、LLM 实体提取              |
+| FilterNode       | LLM 条件筛选判断                              |
+| StoreNode        | MySQL 存储、MinIO 图片存储、ChromaDB 向量存储 |
+| CacheNode        | Redis 缓存结果                                |
 
 ### 2. API 模块
 
-| 模块 | 路径 | 功能 |
-|------|------|------|
-| auth | /api/v1/auth | 用户认证登录 |
-| users | /api/v1/users | 用户管理 |
-| conditions | /api/v1/conditions | 筛选条件管理 |
-| talents | /api/v1/talents | 简历上传、查询、管理 |
-| analysis | /api/v1/analysis | RAG 智能问答 |
-| monitor | /api/v1/monitor | 系统监控 |
+| 模块       | 路径               | 功能                 |
+| ---------- | ------------------ | -------------------- |
+| auth       | /api/v1/auth       | 用户认证登录         |
+| users      | /api/v1/users      | 用户管理             |
+| conditions | /api/v1/conditions | 筛选条件管理         |
+| talents    | /api/v1/talents    | 简历上传、查询、管理 |
+| analysis   | /api/v1/analysis   | RAG 智能问答         |
+| monitor    | /api/v1/monitor    | 系统监控             |
 
 ### 3. 存储服务
 
-| 服务 | 用途 |
-|------|------|
-| MySQL | 人才信息、筛选条件、用户数据 |
-| MinIO | 简历照片存储 |
-| Redis | 任务状态、缓存数据 |
-| ChromaDB | 简历向量存储 |
+| 服务     | 用途                         |
+| -------- | ---------------------------- |
+| MySQL    | 人才信息、筛选条件、用户数据 |
+| MinIO    | 简历照片存储                 |
+| Redis    | 任务状态、缓存数据           |
+| ChromaDB | 简历向量存储                 |
 
 ## 配置说明
 
