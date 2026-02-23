@@ -21,6 +21,11 @@ const UploadPage = {
     TASK_ID_KEY: 'resume_screening_task_id',
     dataLoadedAt: null,
     CACHE_DURATION: 5 * 60 * 1000,
+    pollingInterval: null,
+    usePolling: false,
+    wsRetryCount: 0,
+    WS_MAX_RETRY: 3,
+    POLLING_INTERVAL: 2000,
 
     saveTaskId(taskId) {
         if (taskId) {
@@ -678,11 +683,18 @@ const UploadPage = {
     initWebSocket() {
         const wsUrl = 'ws://localhost:8000/ws/tasks';
         
+        if (this.usePolling) {
+            console.log('使用轮询模式（WebSocket降级）');
+            this.startPolling();
+            return;
+        }
+        
         try {
             this.ws = new WebSocket(wsUrl);
             
             this.ws.onopen = () => {
                 console.log('WebSocket 连接已建立');
+                this.wsRetryCount = 0;
             };
             
             this.ws.onmessage = (event) => {
@@ -692,8 +704,15 @@ const UploadPage = {
             
             this.ws.onclose = () => {
                 console.log('WebSocket 连接已关闭');
-                // 尝试重连
-                setTimeout(() => this.initWebSocket(), 3000);
+                this.wsRetryCount++;
+                
+                if (this.wsRetryCount >= this.WS_MAX_RETRY) {
+                    console.log('WebSocket 重试次数超限，切换到轮询模式');
+                    this.usePolling = true;
+                    this.startPolling();
+                } else {
+                    setTimeout(() => this.initWebSocket(), 3000);
+                }
             };
             
             this.ws.onerror = (error) => {
@@ -701,7 +720,50 @@ const UploadPage = {
             };
         } catch (error) {
             console.error('WebSocket 初始化失败:', error);
+            this.usePolling = true;
+            this.startPolling();
         }
+    },
+
+    startPolling() {
+        if (this.pollingInterval) {
+            return;
+        }
+        
+        console.log('启动轮询模式');
+        this.pollingInterval = setInterval(async () => {
+            if (!this.currentTaskId) {
+                return;
+            }
+            
+            try {
+                const response = await talentsApi.getTaskStatus(this.currentTaskId);
+                if (response.success && response.data) {
+                    this.updateProgressUI(response.data);
+                    
+                    if (['completed', 'failed', 'cancelled'].includes(response.data.status)) {
+                        this.stopPolling();
+                    }
+                }
+            } catch (error) {
+                console.error('轮询任务状态失败:', error);
+            }
+        }, this.POLLING_INTERVAL);
+    },
+
+    stopPolling() {
+        if (this.pollingInterval) {
+            clearInterval(this.pollingInterval);
+            this.pollingInterval = null;
+            console.log('轮询已停止');
+        }
+    },
+
+    switchToWebSocket() {
+        this.stopPolling();
+        this.usePolling = false;
+        this.wsRetryCount = 0;
+        this.initWebSocket();
     },
 
     /**
@@ -720,6 +782,7 @@ const UploadPage = {
         const allowedTypes = ['pdf', 'docx', 'doc'];
         const validFiles = [];
         const errors = [];
+        const docWarnings = [];
 
         for (const file of files) {
             const ext = file.name.split('.').pop().toLowerCase();
@@ -734,11 +797,19 @@ const UploadPage = {
                 continue;
             }
 
+            if (ext === 'doc') {
+                docWarnings.push(file.name);
+            }
+
             validFiles.push(file);
         }
 
         if (errors.length > 0) {
             UI.toast(`部分文件无效: ${errors.slice(0, 3).join(', ')}${errors.length > 3 ? '...' : ''}`, 'warning');
+        }
+
+        if (docWarnings.length > 0) {
+            UI.toast(`提示: .doc格式文件建议转换为.docx格式，可能存在解析兼容性问题`, 'warning');
         }
 
         if (validFiles.length > 50) {
@@ -885,6 +956,16 @@ const UploadPage = {
             if (response.success) {
                 this.currentTaskId = response.data.task_id;
                 this.saveTaskId(this.currentTaskId);
+                
+                // 清空上传状态，恢复初始界面
+                this.uploadedFiles = [];
+                const uploadArea = document.getElementById('uploadArea');
+                const fileList = document.getElementById('fileList');
+                const fileInput = document.getElementById('fileInput');
+                if (uploadArea) uploadArea.classList.remove('hidden');
+                if (fileList) fileList.classList.add('hidden');
+                if (fileInput) fileInput.value = '';
+                this.updateSubmitButton();
                 
                 // 订阅任务更新
                 if (this.ws && this.ws.readyState === WebSocket.OPEN) {
