@@ -611,7 +611,87 @@ sequenceDiagram
     A-->>U: 返回结果+来源
 ```
 
-### 智能问答
+### 异步智能问答（推荐）
+
+创建异步 RAG 查询任务，支持后台处理和进度追踪：
+
+```http
+POST /analysis/query-async
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "query": "有哪些5年以上工作经验的Java开发工程师？",
+  "top_k": 10,
+  "filters": null
+}
+```
+
+**响应**:
+
+```json
+{
+  "success": true,
+  "message": "任务已创建",
+  "data": {
+    "task_id": "xxx-xxx-xxx",
+    "status": "pending",
+    "message": "RAG 查询任务已创建，正在后台处理"
+  }
+}
+```
+
+### 获取分析任务状态
+
+```http
+GET /analysis/tasks/{task_id}
+Authorization: Bearer <token>
+```
+
+**响应**:
+
+```json
+{
+  "success": true,
+  "message": "获取成功",
+  "data": {
+    "id": "xxx-xxx-xxx",
+    "name": "rag_query",
+    "status": "running",
+    "progress": {
+      "current": 2,
+      "total": 3,
+      "percentage": 66.67,
+      "message": "正在生成分析结论..."
+    },
+    "result": null,
+    "error": null,
+    "created_at": "2024-01-01T10:00:00",
+    "updated_at": "2024-01-01T10:00:05"
+  }
+}
+```
+
+**任务状态说明**:
+
+| 状态 | 说明 |
+|------|------|
+| pending | 任务等待执行 |
+| running | 任务执行中 |
+| completed | 任务完成 |
+| failed | 任务失败 |
+| cancelled | 任务已取消 |
+
+### 导出分析报告
+
+```http
+GET /analysis/tasks/{task_id}/export
+Authorization: Bearer <token>
+```
+
+**响应**: Markdown 文件下载
+
+### 同步智能问答
 
 ```http
 POST /analysis/query

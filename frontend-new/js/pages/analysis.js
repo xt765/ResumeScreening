@@ -1131,10 +1131,28 @@ const AnalysisPage = {
         return labels[level] || level;
     },
 
-    /**
-     * 查看人才详情
-     * @param {string} talentId - 人才ID
-     */
+    getScreeningStatusLabel(status) {
+        const labels = {
+            'qualified': '通过',
+            'disqualified': '未通过',
+            'passed': '通过',
+            'failed': '未通过',
+            'pending': '待筛选',
+        };
+        return labels[status] || '待筛选';
+    },
+
+    getScreeningStatusClass(status) {
+        const classes = {
+            'qualified': 'passed',
+            'disqualified': 'failed',
+            'passed': 'passed',
+            'failed': 'failed',
+            'pending': 'pending',
+        };
+        return classes[status] || 'pending';
+    },
+
     async viewTalentDetail(talentId) {
         try {
             UI.showLoading();
@@ -1186,8 +1204,8 @@ const AnalysisPage = {
                             <span class="detail-divider">|</span>
                             <span class="detail-major">${this.escapeHtml(metadata.major || '-')}</span>
                         </div>
-                        <span class="detail-status status-${metadata.screening_status || 'pending'}">
-                            ${metadata.screening_status === 'passed' ? '通过' : metadata.screening_status === 'failed' ? '未通过' : '待筛选'}
+                        <span class="detail-status status-${this.getScreeningStatusClass(metadata.screening_status)}">
+                            ${this.getScreeningStatusLabel(metadata.screening_status)}
                         </span>
                     </div>
 
@@ -1234,8 +1252,8 @@ const AnalysisPage = {
                         <div class="detail-grid">
                             <div class="detail-item">
                                 <span class="detail-label">筛选状态</span>
-                                <span class="detail-value status-${metadata.screening_status || 'pending'}">
-                                    ${metadata.screening_status === 'passed' ? '通过' : metadata.screening_status === 'failed' ? '未通过' : '待筛选'}
+                                <span class="detail-value status-${this.getScreeningStatusClass(metadata.screening_status)}">
+                                    ${this.getScreeningStatusLabel(metadata.screening_status)}
                                 </span>
                             </div>
                             <div class="detail-item">
