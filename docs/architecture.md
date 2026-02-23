@@ -89,22 +89,62 @@ src/storage/
 系统采用 LangGraph 构建 4 节点状态图工作流：
 
 ```mermaid
-graph LR
-    A([开始]) --> B[ParseExtractNode]
-    B --> C[FilterNode]
-    C --> D[StoreNode]
-    D --> E[CacheNode]
-    E --> F([结束])
+graph TB
+    subgraph Start["开始"]
+        A([接收简历文件])
+    end
+    
+    subgraph Node1["ParseExtractNode<br/>解析提取节点"]
+        B1[解析文档<br/>PDF/DOCX]
+        B2[提取文本内容]
+        B3[提取图片]
+        B4[LLM提取候选人信息]
+        B5[人脸检测]
+        B1 --> B2 --> B3 --> B4 --> B5
+    end
+    
+    subgraph Node2["FilterNode<br/>筛选判断节点"]
+        C1[获取筛选条件]
+        C2[构建筛选Prompt]
+        C3[LLM判断是否符合]
+        C4[生成筛选原因]
+        C1 --> C2 --> C3 --> C4
+    end
+    
+    subgraph Node3["StoreNode<br/>数据存储节点"]
+        D1[加密敏感信息<br/>手机号/邮箱]
+        D2[保存到MySQL]
+        D3[上传照片到MinIO]
+        D4[生成向量存入ChromaDB]
+        D1 --> D2 --> D3 --> D4
+    end
+    
+    subgraph Node4["CacheNode<br/>结果缓存节点"]
+        E1[缓存结果到Redis]
+        E2[更新任务状态]
+        E3[WebSocket推送进度]
+        E1 --> E2 --> E3
+    end
+    
+    subgraph End["结束"]
+        F([返回处理结果])
+    end
+    
+    A --> B1
+    B5 --> C1
+    C4 --> D1
+    D4 --> E1
+    E3 --> F
 ```
 
 #### 各节点职责
 
-| 节点 | 职责 | 处理步骤 |
-|------|------|----------|
-| **ParseExtractNode** | 解析文档并提取候选人信息 | 1. 解析文档 (PDF/DOCX)<br/>2. 提取文本和图片<br/>3. LLM 提取候选人信息<br/>4. 检测照片人脸 |
-| **FilterNode** | 根据筛选条件判断是否符合要求 | 1. 获取筛选条件配置<br/>2. 构建筛选 Prompt<br/>3. LLM 判断是否符合条件<br/>4. 生成筛选原因 |
-| **StoreNode** | 持久化存储处理结果 | 1. 加密敏感信息<br/>2. 保存人才信息到 MySQL<br/>3. 上传照片到 MinIO<br/>4. 存储向量到 ChromaDB |
-| **CacheNode** | 缓存处理结果 | 1. 缓存结果到 Redis<br/>2. 更新任务状态<br/>3. WebSocket 推送进度 |
+| 节点 | 职责 | 输入 | 输出 |
+|------|------|------|------|
+| **ParseExtractNode** | 解析文档并提取候选人信息 | 简历文件路径 | `text_content`、`images`、`candidate_info` |
+| **FilterNode** | 根据筛选条件判断是否符合要求 | `candidate_info`、筛选条件 | `is_qualified`、`qualification_reason` |
+| **StoreNode** | 持久化存储处理结果 | 全部状态数据 | `talent_id`、`photo_urls` |
+| **CacheNode** | 缓存处理结果 | 全部状态数据 | 任务状态更新、WebSocket推送 |
 
 ### 3.2 状态定义
 
