@@ -1331,6 +1331,55 @@ if (!document.getElementById('analysis-styles')) {
         color: var(--text-secondary);
     }
 
+    .analysis-page .conclusion-content table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 16px 0;
+        font-size: 14px;
+        background: #fff;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .analysis-page .conclusion-content thead {
+        background: #f8fafc;
+    }
+
+    .analysis-page .conclusion-content th {
+        padding: 12px 16px;
+        text-align: left;
+        font-weight: 600;
+        color: var(--text-primary);
+        border-bottom: 2px solid #e5e7eb;
+        white-space: nowrap;
+    }
+
+    .analysis-page .conclusion-content td {
+        padding: 12px 16px;
+        color: var(--text-primary);
+        border-bottom: 1px solid #e5e7eb;
+        vertical-align: top;
+    }
+
+    .analysis-page .conclusion-content tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    .analysis-page .conclusion-content tbody tr:hover {
+        background: #f8fafc;
+    }
+
+    .analysis-page .conclusion-content th:first-child,
+    .analysis-page .conclusion-content td:first-child {
+        padding-left: 20px;
+    }
+
+    .analysis-page .conclusion-content th:last-child,
+    .analysis-page .conclusion-content td:last-child {
+        padding-right: 20px;
+    }
+
     .analysis-page .conclusion-heading {
         font-size: 16px;
         font-weight: 600;
