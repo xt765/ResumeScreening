@@ -72,6 +72,7 @@ async def _store_to_chromadb(
     talent_id: str,
     resume_text: str,
     candidate_info: dict[str, Any],
+    is_qualified: bool,
 ) -> bool:
     """存储简历向量到 ChromaDB。
 
@@ -81,6 +82,7 @@ async def _store_to_chromadb(
         talent_id: 人才 ID
         resume_text: 简历文本
         candidate_info: 候选人信息
+        is_qualified: 是否通过筛选
 
     Returns:
         bool: 存储成功返回 True
@@ -102,7 +104,6 @@ async def _store_to_chromadb(
             logger.warning("向量生成失败，跳过存储")
             return False
 
-        is_qualified = candidate_info.get("is_qualified", False)
         metadata = {
             "name": candidate_info.get("name", ""),
             "school": candidate_info.get("school", ""),
@@ -279,6 +280,7 @@ async def store_node(state: ResumeState) -> dict[str, Any]:
                     talent_id,
                     state.text_content,
                     state.candidate_info,
+                    state.is_qualified or False,
                 )
 
             # 提交事务
