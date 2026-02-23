@@ -194,6 +194,27 @@ erDiagram
     }
 ```
 
+#### 图表说明
+
+**实体关系**：
+- **User → TalentInfo**：一对多关系，一个用户可以管理多个人才信息
+- **Condition → TalentInfo**：一对多关系，一个筛选条件可以应用于多个人才
+
+**核心实体**：
+
+| 实体 | 说明 | 核心字段 |
+|------|------|----------|
+| **User** | 系统用户表，存储登录账户信息 | `username`(唯一)、`role`(角色权限) |
+| **TalentInfo** | 人才信息表，存储简历提取的结构化数据 | `name`、`school`、`skills`、`screening_status` |
+| **Condition** | 筛选条件表，存储自定义筛选规则 | `name`、`conditions`(JSON格式条件) |
+
+**特殊字段说明**：
+- `PK`：主键 (Primary Key)
+- `UK`：唯一键 (Unique Key)
+- `phone/email`：使用 AES 加密存储敏感信息
+- `content_hash`：简历内容哈希，用于去重
+- `skills/work_experience/projects`：JSON 格式存储复杂数据
+
 ### 4.2 核心表结构
 
 #### 4.2.1 User 表

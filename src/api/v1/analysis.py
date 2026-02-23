@@ -563,3 +563,383 @@ async def get_statistics(
 
 
 __all__ = ["router"]
+
+
+class AsyncQueryRequest(BaseModel):
+    """异步 RAG 查询请求模型。
+
+    Attributes:
+        query: 查询文本
+        top_k: 返回结果数量
+        filters: 元数据过滤条件
+    """
+
+    query: str = Field(..., min_length=1, max_length=500, description="查询文本")
+    top_k: int = Field(default=10, ge=1, le=50, description="返回结果数量")
+    filters: dict[str, Any] | None = Field(default=None, description="元数据过滤条件")
+
+
+class AsyncQueryResponse(BaseModel):
+    """异步 RAG 查询响应模型。
+
+    Attributes:
+        task_id: 任务 ID
+        status: 任务状态
+        message: 提示消息
+    """
+
+    task_id: str = Field(..., description="任务 ID")
+    status: str = Field(..., description="任务状态")
+    message: str = Field(..., description="提示消息")
+
+
+class TaskProgressInfo(BaseModel):
+    """任务进度信息模型。
+
+    Attributes:
+        current: 当前进度
+        total: 总进度
+        percentage: 进度百分比
+        message: 进度消息
+    """
+
+    current: int = Field(default=0, description="当前进度")
+    total: int = Field(default=3, description="总进度")
+    percentage: float = Field(default=0.0, description="进度百分比")
+    message: str = Field(default="准备中...", description="进度消息")
+
+
+class TaskInfoDict(BaseModel):
+    """任务信息字典模型。
+
+    Attributes:
+        id: 任务 ID
+        name: 任务名称
+        status: 任务状态
+        progress: 进度信息
+        result: 任务结果
+        error: 错误信息
+        created_at: 创建时间
+        updated_at: 更新时间
+    """
+
+    id: str = Field(..., description="任务 ID")
+    name: str = Field(..., description="任务名称")
+    status: str = Field(..., description="任务状态")
+    progress: TaskProgressInfo = Field(default_factory=TaskProgressInfo, description="进度信息")
+    result: dict[str, Any] | None = Field(default=None, description="任务结果")
+    error: str | None = Field(default=None, description="错误信息")
+    created_at: str = Field(..., description="创建时间")
+    updated_at: str = Field(..., description="更新时间")
+
+
+async def execute_rag_query_task(
+    task_id: str,
+    query: str,
+    top_k: int,
+    filters: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """执行 RAG 查询任务。
+
+    Args:
+        task_id: 任务 ID
+        query: 查询文本
+        top_k: 返回数量
+        filters: 过滤条件
+
+    Returns:
+        查询结果字典
+    """
+    import time
+
+    from src.core.tasks import task_manager
+
+    start_time = time.time()
+    rag_service = get_rag_service()
+
+    try:
+        await task_manager.update_progress(task_id, 0, 3, "正在生成查询向量...")
+
+        task_filters = filters or {}
+        task_filters["is_deleted"] = False
+
+        await task_manager.update_progress(task_id, 1, 3, "正在检索相关候选人...")
+
+        result = await rag_service.query(
+            question=query,
+            top_k=top_k,
+            filters=task_filters,
+        )
+
+        await task_manager.update_progress(task_id, 2, 3, "正在生成分析结论...")
+
+        sources = [
+            QueryResult(
+                id=doc["id"],
+                content=doc["content"],
+                metadata=doc["metadata"],
+                distance=doc.get("distance"),
+                similarity_score=_calculate_similarity(doc.get("distance")),
+            )
+            for doc in result["sources"]
+        ]
+
+        analytics = _analyze_query_results(sources)
+
+        elapsed_time = int((time.time() - start_time) * 1000)
+
+        await task_manager.update_progress(task_id, 3, 3, "分析完成")
+
+        return {
+            "query": query,
+            "answer": result["answer"],
+            "sources": [s.model_dump() for s in sources],
+            "analytics": analytics.model_dump(),
+            "elapsed_time_ms": elapsed_time,
+            "query_id": task_id,
+        }
+
+    except Exception as e:
+        logger.exception(f"RAG 查询任务失败: {e}")
+        raise
+
+
+@router.post(
+    "/query-async",
+    response_model=APIResponse[AsyncQueryResponse],
+    summary="创建异步 RAG 查询任务",
+    description="创建异步 RAG 查询任务，返回任务 ID，任务在后台执行",
+)
+async def create_async_query(
+    request: AsyncQueryRequest,
+) -> APIResponse[AsyncQueryResponse]:
+    """创建异步 RAG 查询任务。
+
+    Args:
+        request: 查询请求参数
+
+    Returns:
+        APIResponse[AsyncQueryResponse]: 包含任务 ID 的响应
+
+    Raises:
+        HTTPException: 创建任务失败时抛出
+    """
+    from src.core.tasks import task_manager
+
+    logger.info(f"创建异步 RAG 查询任务: query={request.query[:50]}..., top_k={request.top_k}")
+
+    try:
+        task = await task_manager.create_task(
+            name="rag_query",
+            metadata={
+                "query": request.query,
+                "top_k": request.top_k,
+                "filters": request.filters,
+            },
+        )
+
+        await task_manager.start_task(
+            task.id,
+            execute_rag_query_task,
+            task.id,
+            request.query,
+            request.top_k,
+            request.filters,
+        )
+
+        logger.success(f"异步 RAG 查询任务已创建: task_id={task.id}")
+
+        return APIResponse(
+            success=True,
+            message="任务已创建",
+            data=AsyncQueryResponse(
+                task_id=task.id,
+                status="pending",
+                message="RAG 查询任务已创建，正在后台处理",
+            ),
+        )
+
+    except Exception as e:
+        logger.exception(f"创建异步任务失败: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"创建任务失败: {e}",
+        ) from None
+
+
+@router.get(
+    "/tasks/{task_id}",
+    response_model=APIResponse[TaskInfoDict],
+    summary="获取分析任务状态",
+    description="获取分析任务的状态、进度和结果",
+)
+async def get_analysis_task(task_id: str) -> APIResponse[TaskInfoDict]:
+    """获取分析任务状态和结果。
+
+    Args:
+        task_id: 任务 ID
+
+    Returns:
+        APIResponse[TaskInfoDict]: 任务信息
+
+    Raises:
+        HTTPException: 任务不存在时抛出
+    """
+    from src.core.tasks import task_manager
+
+    logger.info(f"获取任务状态: task_id={task_id}")
+
+    task = await task_manager.get_task(task_id)
+    if not task:
+        logger.warning(f"任务不存在: task_id={task_id}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="任务不存在",
+        )
+
+    progress_info = TaskProgressInfo(
+        current=task.progress.current,
+        total=task.progress.total,
+        percentage=task.progress.percentage,
+        message=task.progress.message,
+    )
+
+    task_info = TaskInfoDict(
+        id=task.id,
+        name=task.name,
+        status=task.status.value,
+        progress=progress_info,
+        result=task.result,
+        error=task.error,
+        created_at=task.created_at.isoformat() if task.created_at else "",
+        updated_at=task.updated_at.isoformat() if task.updated_at else "",
+    )
+
+    return APIResponse(
+        success=True,
+        message="获取成功",
+        data=task_info,
+    )
+
+
+def _format_candidates_for_export(sources: list[dict[str, Any]]) -> str:
+    """格式化候选人信息用于导出。
+
+    Args:
+        sources: 候选人数据列表
+
+    Returns:
+        格式化后的 Markdown 文本
+    """
+    if not sources:
+        return "暂无匹配候选人"
+
+    lines = []
+    for i, source in enumerate(sources, 1):
+        metadata = source.get("metadata", {})
+        similarity = source.get("similarity_score", 0) or 0
+        lines.append(f"### 候选人 {i}")
+        lines.append(f"- **姓名**: {metadata.get('name', '未知')}")
+        lines.append(
+            f"- **学历**: {_get_education_label(metadata.get('education_level', 'unknown'))}"
+        )
+        if metadata.get("school"):
+            lines.append(f"- **学校**: {metadata.get('school')}")
+        if metadata.get("work_years") is not None:
+            lines.append(f"- **工作年限**: {metadata.get('work_years')} 年")
+        if metadata.get("position"):
+            lines.append(f"- **职位**: {metadata.get('position')}")
+        if metadata.get("skills"):
+            lines.append(f"- **技能**: {metadata.get('skills')}")
+        lines.append(f"- **相似度**: {similarity * 100:.1f}%")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+@router.get(
+    "/tasks/{task_id}/export",
+    summary="导出分析结果",
+    description="导出分析结果为 Markdown 文件",
+)
+async def export_analysis_result(task_id: str):
+    """导出分析结果为 Markdown 文件。
+
+    Args:
+        task_id: 任务 ID
+
+    Returns:
+        Response: Markdown 文件响应
+
+    Raises:
+        HTTPException: 任务未完成或不存在时抛出
+    """
+    from fastapi import Response
+
+    from src.core.tasks import TaskStatusEnum, task_manager
+
+    logger.info(f"导出分析结果: task_id={task_id}")
+
+    task = await task_manager.get_task(task_id)
+    if not task:
+        logger.warning(f"任务不存在: task_id={task_id}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="任务不存在",
+        )
+
+    if task.status != TaskStatusEnum.COMPLETED:
+        logger.warning(f"任务未完成: task_id={task_id}, status={task.status}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="任务未完成，无法导出",
+        )
+
+    result = task.result or {}
+    analytics = result.get("analytics", {})
+
+    content = f"""# RAG 智能分析报告
+
+## 查询条件
+
+{result.get("query", "无")}
+
+## 分析结论
+
+{result.get("answer", "暂无分析结论")}
+
+## 匹配候选人
+
+{_format_candidates_for_export(result.get("sources", []))}
+
+## 统计数据
+
+- **匹配人数**: {analytics.get("total_count", 0)}
+- **平均相似度**: {analytics.get("avg_similarity", 0) * 100:.1f}%
+
+### 学历分布
+
+{chr(10).join(f"- {k}: {v} 人" for k, v in analytics.get("by_education", {}).items()) or "暂无数据"}
+
+### 经验分布
+
+{chr(10).join(f"- {k}: {v} 人" for k, v in analytics.get("by_work_years_range", {}).items()) or "暂无数据"}
+
+### 热门技能 Top10
+
+{chr(10).join(f"{i + 1}. {s.get('name')}: {s.get('count')} 人" for i, s in enumerate(analytics.get("top_skills", []))) or "暂无数据"}
+
+---
+
+- **生成时间**: {task.completed_at.isoformat() if task.completed_at else "未知"}
+- **任务 ID**: {task_id}
+- **查询耗时**: {result.get("elapsed_time_ms", 0)} ms
+"""
+
+    logger.success(f"导出分析结果成功: task_id={task_id}")
+
+    return Response(
+        content=content,
+        media_type="text/markdown",
+        headers={"Content-Disposition": f"attachment; filename=analysis_{task_id[:8]}.md"},
+    )
