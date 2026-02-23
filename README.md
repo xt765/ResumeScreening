@@ -1,8 +1,8 @@
-# 人才简历智能筛选与管理系统
+<div align="center">
+
+# 简历智能筛选与管理系统
 
 > 基于 LangChain + LangGraph + FastAPI 的企业级智能简历筛选平台，集成大语言模型实现简历智能解析、多条件筛选和 RAG 智能问答。
-
-<div align="center">
 
 [![CSDN Blog](https://img.shields.io/badge/CSDN-玄同765-orange?style=flat-square&logo=csdn)](https://blog.csdn.net/Yunyi_Chi)
 [![GitHub](https://img.shields.io/badge/GitHub-ResumeScreening-black?style=flat-square&logo=github)](https://github.com/xt765/ResumeScreening)
