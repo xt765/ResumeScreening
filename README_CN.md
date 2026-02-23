@@ -41,20 +41,21 @@
 传统人工筛选与本系统对比如下：
 
 ```mermaid
-graph LR
+graph TB
     subgraph 传统方式
         A1[人工阅读简历] --> A2[主观判断筛选]
         A2 --> A3[手动录入信息]
         A3 --> A4[Excel存储管理]
     end
-    
+```
+
+```mermaid
+graph TB
     subgraph 本系统
         B1[AI自动解析] --> B2[LLM智能筛选]
         B2 --> B3[结构化存储]
         B3 --> B4[智能问答检索]
     end
-    
-    style A1 fill:#ffcccc
     style B1 fill:#ccffcc
 ```
 

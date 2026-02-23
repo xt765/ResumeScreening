@@ -39,20 +39,21 @@ This system uses Large Language Model (LLM) technology to achieve **intelligent 
 Comparison between traditional manual screening and this system:
 
 ```mermaid
-graph LR
+graph TB
     subgraph Traditional
         A1[Manual Reading] --> A2[Subjective Judgment]
         A2 --> A3[Manual Entry]
         A3 --> A4[Excel Storage]
     end
-    
+```
+
+```mermaid
+graph TB
     subgraph This System
         B1[AI Auto Parsing] --> B2[LLM Smart Screening]
         B2 --> B3[Structured Storage]
         B3 --> B4[Smart Q&A Retrieval]
     end
-    
-    style A1 fill:#ffcccc
     style B1 fill:#ccffcc
 ```
 
