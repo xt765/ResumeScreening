@@ -148,6 +148,19 @@ const Router = {
      */
     init() {
         window.addEventListener('hashchange', () => this.handleRouteChange());
+        
+        // 首次加载检查
+        const hash = window.location.hash;
+        // 如果没有 hash 或者 hash 为根路径
+        if (!hash || hash === '#/') {
+            // 检查认证状态
+            if (!authApi.isLoggedIn()) {
+                // 未登录直接跳转登录页
+                this.navigateTo('login');
+                return;
+            }
+        }
+        
         this.handleRouteChange();
     },
 
@@ -160,7 +173,8 @@ const Router = {
         const [page, queryString] = fullPath.split('?');
         
         if (page === AppState.currentPage) {
-            return;
+            // 如果页面没变，但可能需要重新渲染（例如从 login 跳转回来）
+            // 这里我们不做严格检查，允许同页刷新逻辑，或者依靠下面的 renderPage
         }
 
         const pageConfig = PageConfig[page];
@@ -182,13 +196,18 @@ const Router = {
             }
         }
         
+        // 控制布局显示
+        const appContainer = document.querySelector('.app-container');
+        const loginContainer = document.getElementById('loginContainer');
+        
         if (pageConfig?.hideLayout) {
-            document.querySelector('.app-container').style.display = 'none';
-            document.getElementById('loginContainer').style.display = 'block';
+            if (appContainer) appContainer.style.display = 'none';
+            if (loginContainer) loginContainer.style.display = 'block';
             document.body.classList.add('login-page');
         } else {
-            document.querySelector('.app-container').style.display = 'flex';
-            document.getElementById('loginContainer').style.display = 'none';
+            // 只有在非 hideLayout 页面才显示 appContainer
+            if (appContainer) appContainer.style.display = 'flex';
+            if (loginContainer) loginContainer.style.display = 'none';
             document.body.classList.remove('login-page');
         }
         
@@ -224,13 +243,15 @@ const Router = {
     },
 
     navigateTo(page) {
-        const targetHash = `/${page}`;
+        // 确保目标 hash 格式一致 (带 #/)
+        const targetHash = `#/${page}`;
         
+        // 如果已经在目标页面，不执行操作
         if (window.location.hash === targetHash) {
             return;
         }
         
-        window.location.hash = targetHash;
+        window.location.hash = `/${page}`;
     },
 
     async renderPage(page) {

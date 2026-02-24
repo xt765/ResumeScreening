@@ -9,17 +9,26 @@ const API_BASE_URL = 'http://localhost:8000/api/v1';
  * 获取存储的 Token
  */
 function getStoredToken() {
-    return localStorage.getItem('token');
+    try {
+        return localStorage.getItem('token');
+    } catch (e) {
+        console.warn('Cannot access localStorage:', e);
+        return null;
+    }
 }
 
 /**
  * 设置存储的 Token
  */
 function setStoredToken(token) {
-    if (token) {
-        localStorage.setItem('token', token);
-    } else {
-        localStorage.removeItem('token');
+    try {
+        if (token) {
+            localStorage.setItem('token', token);
+        } else {
+            localStorage.removeItem('token');
+        }
+    } catch (e) {
+        console.warn('Cannot access localStorage:', e);
     }
 }
 
@@ -27,18 +36,27 @@ function setStoredToken(token) {
  * 获取存储的用户信息
  */
 function getStoredUser() {
-    const user = localStorage.getItem('user');
-    return user ? JSON.parse(user) : null;
+    try {
+        const user = localStorage.getItem('user');
+        return user ? JSON.parse(user) : null;
+    } catch (e) {
+        console.warn('Cannot access localStorage:', e);
+        return null;
+    }
 }
 
 /**
  * 设置存储的用户信息
  */
 function setStoredUser(user) {
-    if (user) {
-        localStorage.setItem('user', JSON.stringify(user));
-    } else {
-        localStorage.removeItem('user');
+    try {
+        if (user) {
+            localStorage.setItem('user', JSON.stringify(user));
+        } else {
+            localStorage.removeItem('user');
+        }
+    } catch (e) {
+        console.warn('Cannot access localStorage:', e);
     }
 }
 
@@ -46,8 +64,12 @@ function setStoredUser(user) {
  * 清除认证信息
  */
 function clearAuth() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    try {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+    } catch (e) {
+        console.warn('Cannot access localStorage:', e);
+    }
 }
 
 /**

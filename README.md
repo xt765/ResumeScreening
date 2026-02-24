@@ -415,6 +415,17 @@ ResumeScreening/
 - [Deployment Guide](docs/zh/deployment.md) - Docker deployment steps
 - [Development Guide](docs/zh/development.md) - Development environment setup
 
+## Changelog
+
+### 2026-02-24
+- **Frontend Optimization**:
+  - Enhanced routing robustness: Fixed `Router.navigateTo` hash handling and initial redirect logic.
+  - Improved UX: Hidden `app-container` by default to prevent "Flash of Unauthenticated Content".
+  - Added error handling for `localStorage` to prevent crashes in restricted environments (e.g., privacy mode).
+- **Documentation**:
+  - Updated development and deployment guides.
+  - Added frontend best practices section.
+
 ## License
 
 MIT License

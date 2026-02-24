@@ -275,6 +275,24 @@ handleFilesSelect(files) {
 }
 ```
 
+### 前端开发注意事项
+
+#### 1. 路由跳转与 Hash 处理
+前端使用原生 Hash 路由。在处理跳转时，务必注意 `window.location.hash` 的格式一致性。
+- **推荐**：使用 `Router.navigateTo('page')` 统一管理跳转。
+- **注意**：避免直接赋值 `window.location.hash`，除非你明确知道你在做什么。
+- **初始加载**：在 `Router.init` 中处理了首次加载和未登录重定向逻辑，修改时需谨慎。
+
+#### 2. LocalStorage 安全访问
+由于部分浏览器（如 Safari 隐私模式）可能限制 `localStorage` 访问，直接调用可能导致抛出异常并阻塞脚本执行。
+- **强制**：所有 `localStorage` 操作必须包裹在 `try-catch` 块中。
+- **推荐**：使用 `js/api.js` 中封装好的 `getStoredToken` / `setStoredToken` 等方法。
+
+#### 3. 避免 UI 闪烁 (FOUC)
+为了防止未认证用户短暂看到受保护的页面内容：
+- `index.html` 中 `.app-container` 默认应设置为 `style="display: none;"`。
+- 在 `Router.handleRouteChange` 中，仅当确认用户已登录且有权限时，再显式显示 `.app-container`。
+
 ## 测试指南
 
 ### 测试框架

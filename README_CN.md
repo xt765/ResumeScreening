@@ -676,6 +676,17 @@ uv run basedpyright src/
 - [开发指南](docs/zh/development.md) - 开发环境搭建和代码规范
 - [使用文档](docs/zh/usage.md) - 用户使用指南
 
+## 更新日志 (Changelog)
+
+### 2026-02-24
+- **前端优化**:
+  - 增强路由健壮性：修复 `Router.navigateTo` 的 Hash 处理逻辑，完善首次访问的重定向判断。
+  - 提升用户体验：默认隐藏 `app-container`，消除未登录状态下的页面闪烁问题 (FOUC)。
+  - 增强容错性：为 `localStorage` 访问添加异常捕获，防止在隐私模式等受限环境下崩溃。
+- **文档更新**:
+  - 更新开发和部署指南。
+  - 补充前端开发最佳实践说明。
+
 ## 许可证
 
 MIT License
