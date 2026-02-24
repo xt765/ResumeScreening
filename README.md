@@ -10,9 +10,9 @@
 
 ![Python](https://img.shields.io/badge/Python-3.10%20|%203.11%20|%203.12%20|%203.13-blue?style=flat-square&logo=python)
 ![Ruff](https://img.shields.io/badge/Ruff-Formatter-orange?style=flat-square&logo=ruff)
-![Basedpyright](https://img.shields.io/badge/Basedpyright-TypeCheck-purple?style=flat-square)
+![Basedpyright](https://img.shields.io/badge/Basedpyright-TypeCheck-purple?style=flat-square&logo=python)
 ![Docker](https://img.shields.io/badge/Docker-Containerized-blue?style=flat-square&logo=docker)
-![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
+![License](https://img.shields.io/badge/License-MIT-green?style=flat-square&logo=open-source-initiative)
 
 </div>
 
