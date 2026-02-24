@@ -65,14 +65,21 @@ async def _load_and_merge_conditions(filter_config: dict[str, Any]) -> dict[str,
 
     from src.models import async_session_factory
     from src.models.condition import ScreeningCondition
+    from src.schemas.condition import (
+        ConditionGroup,
+        FilterCondition,
+        LogicalOperator,
+        ComparisonOperator,
+    )
 
     groups = filter_config.get("groups", [])
+    group_logic = filter_config.get("group_logic", "and")
     exclude_ids = filter_config.get("exclude_condition_ids", [])
 
     all_condition_ids: set[str] = set()
     for group in groups:
-        all_condition_ids.update(group.get("condition_ids", []))
-    all_condition_ids.update(exclude_ids)
+        all_condition_ids.update(str(cid) for cid in group.get("condition_ids", []))
+    all_condition_ids.update(str(cid) for cid in exclude_ids)
 
     if not all_condition_ids:
         return {}
@@ -87,7 +94,7 @@ async def _load_and_merge_conditions(filter_config: dict[str, Any]) -> dict[str,
 
         for record in condition_records:
             if record.conditions:
-                conditions_map[record.id] = record.conditions
+                conditions_map[str(record.id)] = record.conditions
 
     merged_config: dict[str, Any] = {
         "skills": [],
@@ -96,8 +103,10 @@ async def _load_and_merge_conditions(filter_config: dict[str, Any]) -> dict[str,
         "locations": [],
         "certifications": [],
         "keywords": [],
+        "filter_rules": None,  # 新增：用于存储结构化条件树
     }
 
+    # ==================== 1. 保留向后兼容的扁平化逻辑 ====================
     for cond_id, cond_config in conditions_map.items():
         if cond_config.get("skills"):
             merged_config["skills"].extend(cond_config["skills"])
@@ -131,6 +140,121 @@ async def _load_and_merge_conditions(filter_config: dict[str, Any]) -> dict[str,
     merged_config["certifications"] = list(set(merged_config["certifications"]))
     merged_config["keywords"] = list(set(merged_config["keywords"]))
 
+    # ==================== 2. 构建结构化条件树 (Condition Tree) ====================
+    
+    def _convert_config_to_conditions(config: dict[str, Any]) -> list[FilterCondition]:
+        """将单个配置字典转换为 FilterCondition 列表"""
+        conditions = []
+        # 技能 (Skills) - 通常是 CONTAINS 或 IN
+        if config.get("skills"):
+            # 这里的语义通常是 "包含这些技能中的每一个" (AND) 还是 "包含任意一个" (OR)?
+            # 在简单模式下，通常 implication 是 "必须具备这些技能"。
+            # 为了严谨，我们为每个技能创建一个 CONTAINS 条件
+            for skill in config["skills"]:
+                conditions.append(FilterCondition(
+                    field="skills",
+                    operator=ComparisonOperator.CONTAINS,
+                    value=skill
+                ))
+        
+        # 学历 (Education) - GTE (大于等于)
+        if config.get("education_level"):
+             conditions.append(FilterCondition(
+                field="education_level",
+                operator=ComparisonOperator.GTE, # 假设枚举值有序或 evaluator 处理
+                value=config["education_level"]
+            ))
+
+        # 工作年限 (Experience)
+        if config.get("experience_years"):
+            conditions.append(FilterCondition(
+                field="work_years",
+                operator=ComparisonOperator.GTE,
+                value=config["experience_years"]
+            ))
+        
+        if config.get("experience_years_max"):
+            conditions.append(FilterCondition(
+                field="work_years",
+                operator=ComparisonOperator.LTE,
+                value=config["experience_years_max"]
+            ))
+
+        # 专业 (Major) - 只要匹配其中一个即可 (OR 逻辑)
+        # 所以这里的 value 应该是一个列表，Evaluator 处理 IN/CONTAINS_ANY
+        if config.get("major"):
+             # 假设 Evaluator 支持 "IN" 或者我们创建多个条件用 OR 包裹
+             # 为了简单，这里使用 "major IN [list]" 语义
+             conditions.append(FilterCondition(
+                field="major",
+                operator=ComparisonOperator.IN, # 或者需要自定义一个 CONTAINS_ANY
+                value=config["major"]
+            ))
+        
+        # 关键词 (Keywords) - 全文检索
+        if config.get("keywords"):
+            for kw in config["keywords"]:
+                conditions.append(FilterCondition(
+                    field="keywords", # 特殊字段名
+                    operator=ComparisonOperator.CONTAINS,
+                    value=kw
+                ))
+
+        return conditions
+
+    # 构建根组
+    root_conditions = []
+
+    # 1. 处理包含组 (Include Groups)
+    for group in groups:
+        group_logic_local = group.get("logic", "and") # 组内逻辑
+        group_condition_ids = group.get("condition_ids", [])
+        
+        sub_group_conditions = []
+        for cid in group_condition_ids:
+            if str(cid) in conditions_map:
+                # 将单个条件配置转换为 FilterCondition 列表
+                # 注意：单个条件配置内部通常是 AND 关系 (既要满足学历，又要满足技能)
+                # 所以我们把它们放在一个隐式的 AND 组里，或者直接作为列表
+                conditions = _convert_config_to_conditions(conditions_map[str(cid)])
+                if conditions:
+                    # 如果有多个条件，为了保证原子性，应该把它们包在一个 AND 组里
+                    if len(conditions) > 1:
+                        sub_group_conditions.append(ConditionGroup(
+                            operator=LogicalOperator.AND,
+                            conditions=conditions
+                        ))
+                    else:
+                        sub_group_conditions.append(conditions[0])
+        
+        if sub_group_conditions:
+            # 创建组节点
+            root_conditions.append(ConditionGroup(
+                operator=LogicalOperator(group_logic_local),
+                conditions=sub_group_conditions
+            ))
+
+    # 2. 处理排除组 (Exclude Groups) - 相当于 AND (NOT (Condition))
+    for exc_id in exclude_ids:
+        if str(exc_id) in conditions_map:
+            conditions = _convert_config_to_conditions(conditions_map[str(exc_id)])
+            if conditions:
+                # 排除意味着这些条件不能同时满足 (或者不能满足任意一个?)
+                # 通常排除是为了 "排除包含某些特征的人"。
+                # 比如 "排除学历为专科的人" -> NOT (education == college)
+                # 我们将其包装为 NOT 组
+                root_conditions.append(ConditionGroup(
+                    operator=LogicalOperator.NOT,
+                    conditions=conditions # 这里如果列表有多个，NOT 会作用于它们的组合(默认为AND)吗？需 Evaluator 定义
+                ))
+
+    if root_conditions:
+        merged_config["filter_rules"] = ConditionGroup(
+            operator=LogicalOperator(group_logic),
+            conditions=root_conditions
+        )
+        logger.info(f"构建结构化条件树: {merged_config['filter_rules']}")
+    
     merged_config["_filter_config"] = filter_config
 
     logger.info(f"合并筛选条件配置: {merged_config}")
@@ -396,7 +520,7 @@ async def run_resume_workflow(
 
     try:
         # 处理复杂筛选配置
-        if filter_config and "groups" in filter_config:
+        if filter_config and ("groups" in filter_config or "exclude_condition_ids" in filter_config):
             # 复杂筛选配置：加载所有条件并合并
             condition_config = await _load_and_merge_conditions(filter_config)
         elif not condition_config and condition_id:

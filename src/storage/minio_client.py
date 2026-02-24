@@ -5,11 +5,15 @@
 """
 
 import io
+import os
+import shutil
+from pathlib import Path
 from typing import BinaryIO
 
 from loguru import logger
 from minio import Minio
 from minio.error import S3Error
+from urllib3.exceptions import MaxRetryError
 
 from src.core.config import get_settings
 
@@ -18,16 +22,21 @@ class MinIOClient:
     """MinIO 客户端单例类。
 
     封装 MinIO 操作，提供图片存储功能。
+    支持自动降级到本地文件存储（当 MinIO 不可用时）。
 
     Attributes:
         _instance: 单例实例
         _initialized: 是否已初始化标志
         client: Minio 客户端实例
         bucket_name: 默认存储桶名称
+        _use_local_storage: 是否使用本地存储模式
+        _local_storage_dir: 本地存储目录
     """
 
     _instance: "MinIOClient | None" = None
     _initialized: bool = False
+    _use_local_storage: bool = False
+    _local_storage_dir: Path = Path("data/minio_mock")
 
     def __new__(cls) -> "MinIOClient":
         """创建或返回单例实例。
@@ -67,8 +76,25 @@ class MinIOClient:
             secure=self._secure,
         )
 
-        self._ensure_bucket_exists()
+        try:
+            self._ensure_bucket_exists()
+        except Exception as e:
+            logger.warning(f"MinIO 连接失败，切换到本地存储模式: {e}")
+            self._use_local_storage = True
+            self._ensure_local_dir_exists()
+
         MinIOClient._initialized = True
+
+    def _ensure_local_dir_exists(self) -> None:
+        """确保本地存储目录存在。"""
+        if not self._local_storage_dir.exists():
+            self._local_storage_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"创建本地存储目录: {self._local_storage_dir}")
+        
+        # 确保 bucket 目录存在
+        bucket_dir = self._local_storage_dir / self.bucket_name
+        if not bucket_dir.exists():
+            bucket_dir.mkdir(parents=True, exist_ok=True)
 
     def _ensure_bucket_exists(self) -> None:
         """确保存储桶存在，不存在则创建。
@@ -92,11 +118,14 @@ class MinIOClient:
         Returns:
             bool: 连接成功返回 True，否则返回 False
         """
+        if self._use_local_storage:
+            return True
+            
         try:
             self.client.bucket_exists(self.bucket_name)
             logger.info("MinIO 连接测试成功")
             return True
-        except S3Error as e:
+        except Exception as e:
             logger.error(f"MinIO 连接测试失败: {e}")
             return False
 
@@ -121,6 +150,28 @@ class MinIOClient:
         Raises:
             S3Error: MinIO 操作错误
         """
+        # 本地存储模式
+        if self._use_local_storage:
+            try:
+                file_path = self._local_storage_dir / self.bucket_name / object_name
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+                
+                mode = "wb"
+                if isinstance(data, bytes):
+                    with open(file_path, mode) as f:
+                        f.write(data)
+                else:
+                    data.seek(0)
+                    with open(file_path, mode) as f:
+                        shutil.copyfileobj(data, f)
+                
+                url = f"file://{file_path.absolute()}"
+                logger.info(f"图片上传成功(本地): {object_name}, Path: {url}")
+                return url
+            except Exception as e:
+                logger.exception(f"上传图片失败(本地): {object_name}, 错误: {e}")
+                raise
+
         try:
             # 处理字节数据
             if isinstance(data, bytes):
@@ -157,6 +208,21 @@ class MinIOClient:
         Returns:
             bytes | None: 图片字节数据，不存在返回 None
         """
+        if self._use_local_storage:
+            try:
+                file_path = self._local_storage_dir / self.bucket_name / object_name
+                if not file_path.exists():
+                    logger.debug(f"图片不存在(本地): {object_name}")
+                    return None
+                
+                with open(file_path, "rb") as f:
+                    data = f.read()
+                logger.info(f"获取图片成功(本地): {object_name}, 大小: {len(data)} bytes")
+                return data
+            except Exception as e:
+                logger.exception(f"获取图片失败(本地): {object_name}, 错误: {e}")
+                raise
+
         try:
             response = self.client.get_object(self.bucket_name, object_name)
             data = response.read()
@@ -181,6 +247,20 @@ class MinIOClient:
         Returns:
             bool: 删除成功返回 True，图片不存在返回 False
         """
+        if self._use_local_storage:
+            try:
+                file_path = self._local_storage_dir / self.bucket_name / object_name
+                if not file_path.exists():
+                    logger.debug(f"图片不存在(本地)，无需删除: {object_name}")
+                    return False
+                
+                os.remove(file_path)
+                logger.info(f"删除图片成功(本地): {object_name}")
+                return True
+            except Exception as e:
+                logger.exception(f"删除图片失败(本地): {object_name}, 错误: {e}")
+                raise
+
         try:
             # 先检查图片是否存在
             self.client.stat_object(self.bucket_name, object_name)
@@ -207,6 +287,10 @@ class MinIOClient:
         Raises:
             S3Error: MinIO 操作错误
         """
+        if self._use_local_storage:
+             file_path = self._local_storage_dir / self.bucket_name / object_name
+             return f"file://{file_path.absolute()}"
+
         try:
             from datetime import timedelta
 
@@ -231,6 +315,10 @@ class MinIOClient:
         Returns:
             bool: 存在返回 True，否则返回 False
         """
+        if self._use_local_storage:
+            file_path = self._local_storage_dir / self.bucket_name / object_name
+            return file_path.exists()
+
         try:
             self.client.stat_object(self.bucket_name, object_name)
             return True

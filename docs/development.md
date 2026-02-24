@@ -455,7 +455,7 @@ class CustomModel(Base, TimestampMixin):
 ### 4. 添加前端页面
 
 ```javascript
-// frontend-new/js/pages/custom.js
+# frontend-new/js/pages/custom.js
 
 const CustomPage = {
     async render() {

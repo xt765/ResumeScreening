@@ -41,6 +41,7 @@ class MySQLSettings(BaseSettings):
     user: str = Field(default="root", description="MySQL 用户名")
     password: str = Field(default="", description="MySQL 密码")
     database: str = Field(default="resume_screening", description="数据库名称")
+    use_sqlite: bool = Field(default=False, description="是否使用 SQLite（仅用于开发/测试）")
 
     @property
     def dsn(self) -> str:
@@ -49,6 +50,11 @@ class MySQLSettings(BaseSettings):
         Returns:
             MySQL 连接 DSN
         """
+        if self.use_sqlite:
+            print("Config: Using SQLite DSN")
+            return "sqlite+aiosqlite:///./test.db"
+            
+        print(f"Config: Using MySQL DSN (host={self.host})")
         return (
             f"mysql+aiomysql://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}"
         )

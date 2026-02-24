@@ -1,172 +1,193 @@
-# Deployment Guide
+# 部署指南
 
-## Environment Requirements
+## 环境要求
 
-### Hardware Requirements
+### 硬件要求
 
-| Config | Minimum | Recommended |
-|--------|---------|-------------|
-| CPU | 2 Cores | 4 Cores+ |
-| Memory | 4 GB | 8 GB+ |
-| Disk | 20 GB | 50 GB+ SSD |
+| 配置项 | 最低要求 | 推荐配置 |
+|--------|----------|----------|
+| CPU | 2 核 | 4 核+ |
+| 内存 | 4 GB | 8 GB+ |
+| 磁盘 | 20 GB | 50 GB+ SSD |
 
-### Software Requirements
+### 软件要求
 
-| Software | Version |
-|----------|---------|
+| 软件 | 版本要求 |
+|------|----------|
 | Docker | 24.0+ |
 | Docker Compose | 2.20+ |
 | Python | 3.13+ |
-| uv | Latest |
+| uv | 最新版 |
 
-## Deployment Methods
+## 部署方式
 
-### Method 1: Docker Compose Deployment (Recommended)
+### 方式一：Docker Compose 部署（推荐）
 
-#### 1. Prepare Configuration Files
+#### 1. 准备配置文件
 
 ```bash
-# Clone project
+# 克隆项目
 git clone <repository-url>
 cd ResumeScreening
 
-# Copy environment variable config
+# 复制环境变量配置
 cp .env.example .env
 ```
 
-#### 2. Configure Environment Variables
+#### 2. 配置环境变量
 
-Edit `.env` file, configure required parameters:
+编辑 `.env` 文件，配置必要参数：
 
 ```bash
-# Application config
+# 应用配置
 APP_DEBUG=false
 APP_LOG_LEVEL=INFO
 APP_AES_KEY=your-aes-key-at-least-32-bytes!
 APP_LLM_TIMEOUT=30
 APP_LLM_MAX_RETRIES=3
 
-# JWT config
+# JWT 配置
 JWT_SECRET_KEY=your-jwt-secret-key-at-least-32-bytes!
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES=1440
 
-# MySQL config
+# MySQL 配置
 MYSQL_HOST=mysql
 MYSQL_PORT=3306
 MYSQL_USER=root
 MYSQL_PASSWORD=your-secure-password
 MYSQL_DATABASE=resume_screening
 
-# Redis config
+# Redis 配置
 REDIS_HOST=redis
 REDIS_PORT=6379
 REDIS_PASSWORD=
 
-# MinIO config
+# MinIO 配置
 MINIO_ENDPOINT=minio:9000
 MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=your-minio-secret-key
 MINIO_BUCKET=resume-images
 
-# DeepSeek LLM config
+# DeepSeek LLM 配置
 DS_API_KEY=your-deepseek-api-key
 DS_BASE_URL=https://api.deepseek.com
 DS_MODEL=deepseek-chat
 
-# DashScope Embedding config
+# DashScope Embedding 配置
 DASHSCOPE_API_KEY=your-dashscope-api-key
 DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 DASHSCOPE_EMBEDDING_MODEL=text-embedding-v3
 ```
 
-#### 3. Start Services
+#### 3. 启动服务
 
 ```bash
-# Build and start all services
+# 构建并启动所有服务
 docker-compose up -d --build
 
-# View service status
+# 查看服务状态
 docker-compose ps
 
-# View logs
+# 查看日志
 docker-compose logs -f backend
 ```
 
-#### 4. Initialize System
+#### 4. 初始化系统
 
 ```bash
-# Enter backend container
+# 进入后端容器
 docker-compose exec backend bash
 
-# Initialize admin account
+# 初始化管理员账户
 uv run python scripts/init_admin.py
 ```
 
-#### 5. Access Services
+#### 5. 访问服务
 
-| Service | Address |
-|---------|---------|
-| Frontend | http://localhost |
-| API Docs | http://localhost:8000/docs |
-| MinIO Console | http://localhost:9001 |
+| 服务 | 地址 |
+|------|------|
+| 前端界面 | http://localhost |
+| API 文档 | http://localhost:8000/docs |
+| MinIO 控制台 | http://localhost:9001 |
 
-### Method 2: Local Development Deployment
+### 方式二：本地开发部署
 
-#### 1. Install Dependencies
+#### 1. 安装依赖
 
 ```bash
-# Install uv
+# 安装 uv
 pip install uv
 
-# Install project dependencies
+# 安装项目依赖
 uv sync
 ```
 
-#### 2. Configure Environment Variables
+#### 2. 配置环境变量
 
 ```bash
-# Copy config file
+# 复制配置文件
 cp .env.example .env
 
-# Edit config, modify following configs to local services
+# 编辑配置，修改以下配置为本地服务
 MYSQL_HOST=localhost
 REDIS_HOST=localhost
 MINIO_ENDPOINT=localhost:9000
 ```
 
-#### 3. Start Dependency Services
+#### 3. 启动依赖服务
 
 ```bash
-# Start MySQL, Redis, MinIO only
+# 仅启动 MySQL、Redis、MinIO
 docker-compose up -d mysql redis minio
 ```
 
-#### 4. Initialize Database
+#### 4. 初始化数据库
 
 ```bash
-# Create database tables
+# 创建数据库表
 uv run python scripts/init_db.py
 
-# Create admin account
+# 创建管理员账户
 uv run python scripts/init_admin.py
 ```
 
-#### 5. Start Backend Service
+#### 5. 启动后端服务
 
 ```bash
 uv run uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-#### 6. Start Frontend Service
+#### 6. 启动前端服务
 
 ```bash
 cd frontend-new
 python -m http.server 3000
 ```
 
-## Service Configuration Details
+### 方式三：纯本地开发模式 (Local Fallback)
 
-### MySQL Configuration
+如果您不想安装 Docker，也可以使用纯本地模式运行项目：
+
+1. **配置环境变量**：
+   修改 `.env` 文件：
+   ```bash
+   # 使用本地文件系统代替 MinIO
+   MINIO_ENDPOINT=local_storage
+   # 使用内存字典代替 Redis
+   REDIS_HOST=memory
+   # 使用 SQLite (如果需要，需修改 config.py 中的 DB 配置)
+   # 目前默认配置仍需 MySQL，但可配合本地 MySQL 或后续支持 SQLite
+   ```
+
+2. **启动服务**：
+   直接运行 Python 启动脚本，无需 `docker-compose`。
+   ```bash
+   uv run uvicorn src.api.main:app --reload
+   ```
+
+## 服务配置详解
+
+### MySQL 配置
 
 ```yaml
 mysql:
@@ -180,12 +201,12 @@ mysql:
     - mysql-data:/var/lib/mysql
 ```
 
-**Optimization Suggestions**:
-- Set strong password in production
-- Configure regular backups
-- Adjust `innodb_buffer_pool_size` based on data volume
+**优化建议**:
+- 生产环境设置强密码
+- 配置定期备份
+- 根据数据量调整 `innodb_buffer_pool_size`
 
-### Redis Configuration
+### Redis 配置
 
 ```yaml
 redis:
@@ -195,11 +216,11 @@ redis:
     - redis-data:/data
 ```
 
-**Optimization Suggestions**:
-- Set password in production
-- Adjust `maxmemory` based on needs
+**优化建议**:
+- 生产环境设置密码
+- 根据需求调整 `maxmemory`
 
-### MinIO Configuration
+### MinIO 配置
 
 ```yaml
 minio:
@@ -210,12 +231,12 @@ minio:
   command: server /data --console-address ":9001"
 ```
 
-**Optimization Suggestions**:
-- Use distributed mode in production
-- Configure HTTPS
-- Set Bucket policies
+**优化建议**:
+- 生产环境使用分布式模式
+- 配置 HTTPS
+- 设置 Bucket 策略
 
-### Backend Service Configuration
+### 后端服务配置
 
 ```yaml
 backend:
@@ -225,7 +246,7 @@ backend:
   environment:
     - APP_DEBUG=${APP_DEBUG:-false}
     - MYSQL_HOST=${MYSQL_HOST:-mysql}
-    # ... other environment variables
+    # ... 其他环境变量
   volumes:
     - backend-logs:/app/logs
     - chroma-data:/app/data/chroma
@@ -236,13 +257,13 @@ backend:
     retries: 3
 ```
 
-## Production Deployment
+## 生产环境部署
 
-### 1. Security Hardening
+### 1. 安全加固
 
-#### HTTPS Configuration
+#### HTTPS 配置
 
-Use Nginx reverse proxy to configure HTTPS:
+使用 Nginx 反向代理配置 HTTPS：
 
 ```nginx
 server {
@@ -272,15 +293,15 @@ server {
 }
 ```
 
-#### Password Security
+#### 密码安全
 
-- Use strong passwords (at least 16 characters, including uppercase, lowercase, numbers, special characters)
-- Change passwords regularly
-- Use different passwords for different services
+- 使用强密码（至少 16 位，包含大小写字母、数字、特殊字符）
+- 定期更换密码
+- 不同服务使用不同密码
 
-### 2. Performance Optimization
+### 2. 性能优化
 
-#### Backend Optimization
+#### 后端优化
 
 ```yaml
 backend:
@@ -294,7 +315,7 @@ backend:
         memory: 4G
 ```
 
-#### MySQL Optimization
+#### MySQL 优化
 
 ```ini
 [mysqld]
@@ -304,9 +325,9 @@ max_connections = 500
 query_cache_size = 0
 ```
 
-### 3. Monitoring Configuration
+### 3. 监控配置
 
-#### Log Collection
+#### 日志收集
 
 ```yaml
 backend:
@@ -317,9 +338,9 @@ backend:
       max-file: "10"
 ```
 
-#### Health Check
+#### 健康检查
 
-All services are configured with health checks:
+所有服务都配置了健康检查：
 
 ```yaml
 healthcheck:
@@ -330,128 +351,128 @@ healthcheck:
   start_period: 30s
 ```
 
-### 4. Backup Strategy
+### 4. 备份策略
 
-#### MySQL Backup
+#### MySQL 备份
 
 ```bash
-# Daily backup script
+# 每日备份脚本
 #!/bin/bash
 BACKUP_DIR=/backup/mysql
 DATE=$(date +%Y%m%d)
 docker-compose exec -T mysql mysqldump -u root -p${MYSQL_PASSWORD} resume_screening > ${BACKUP_DIR}/resume_screening_${DATE}.sql
-# Keep last 7 days backups
+# 保留最近 7 天备份
 find ${BACKUP_DIR} -name "*.sql" -mtime +7 -delete
 ```
 
-#### MinIO Backup
+#### MinIO 备份
 
 ```bash
-# Use mc command line tool
+# 使用 mc 命令行工具
 mc mirror local/resume-images /backup/minio/resume-images
 ```
 
-## Common Issues
+## 常见问题
 
-### 1. Service Startup Failure
+### 1. 服务启动失败
 
-**Problem**: MySQL connection failed
+**问题**: MySQL 连接失败
 
-**Solution**:
+**解决方案**:
 ```bash
-# Check if MySQL is ready
+# 检查 MySQL 是否就绪
 docker-compose logs mysql
 
-# Wait for MySQL to fully start
+# 等待 MySQL 完全启动
 docker-compose exec mysql mysql -u root -p -e "SELECT 1"
 ```
 
-### 2. Insufficient Memory
+### 2. 内存不足
 
-**Problem**: Container memory insufficient
+**问题**: 容器内存不足
 
-**Solution**:
+**解决方案**:
 ```bash
-# Check memory usage
+# 检查内存使用
 docker stats
 
-# Adjust Docker memory limit
-# Add in docker-compose.yml:
+# 调整 Docker 内存限制
+# 在 docker-compose.yml 中添加：
 deploy:
   resources:
     limits:
       memory: 4G
 ```
 
-### 3. Network Issues
+### 3. 网络问题
 
-**Problem**: Containers cannot communicate
+**问题**: 容器间无法通信
 
-**Solution**:
+**解决方案**:
 ```bash
-# Check network
+# 检查网络
 docker network ls
 docker network inspect resume-network
 
-# Rebuild network
+# 重建网络
 docker-compose down
 docker-compose up -d
 ```
 
-### 4. ChromaDB Data Loss
+### 4. ChromaDB 数据丢失
 
-**Problem**: Vector data lost after restart
+**问题**: 重启后向量数据丢失
 
-**Solution**:
-Ensure ChromaDB data directory is mounted correctly:
+**解决方案**:
+确保 ChromaDB 数据目录挂载正确：
 ```yaml
 volumes:
   - chroma-data:/app/data/chroma
 ```
 
-## Operations Commands
+## 运维命令
 
-### Service Management
+### 服务管理
 
 ```bash
-# Start all services
+# 启动所有服务
 docker-compose up -d
 
-# Stop all services
+# 停止所有服务
 docker-compose down
 
-# Restart single service
+# 重启单个服务
 docker-compose restart backend
 
-# View service status
+# 查看服务状态
 docker-compose ps
 
-# View logs
+# 查看日志
 docker-compose logs -f backend
 ```
 
-### Data Management
+### 数据管理
 
 ```bash
-# Enter MySQL
+# 进入 MySQL
 docker-compose exec mysql mysql -u root -p
 
-# Enter Redis
+# 进入 Redis
 docker-compose exec redis redis-cli
 
-# Enter backend container
+# 进入后端容器
 docker-compose exec backend bash
 ```
 
-### Cleanup Operations
+### 清理操作
 
 ```bash
-# Clean unused images
+# 清理未使用的镜像
 docker image prune -a
 
-# Clean unused volumes
+# 清理未使用的卷
 docker volume prune
 
-# Complete cleanup (use with caution)
+# 完全清理（谨慎使用）
 docker-compose down -v --rmi all
 ```

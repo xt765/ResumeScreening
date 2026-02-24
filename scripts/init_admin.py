@@ -11,6 +11,7 @@
 
 import asyncio
 import sys
+import uuid
 from pathlib import Path
 
 project_root = Path(__file__).parent.parent
@@ -20,7 +21,7 @@ import bcrypt
 from sqlalchemy import text
 
 from src.core.config import get_settings
-from src.models import async_session_factory, init_db
+from src.models import async_session_factory, init_db, Base, _async_engine
 
 ADMIN_USERNAME = "xt765"
 ADMIN_PASSWORD = "123456"
@@ -70,15 +71,23 @@ async def init_admin() -> None:
         )
         if result.fetchone():
             print(f"\n管理员账号已存在: {ADMIN_USERNAME}")
-            print("如需重置密码，请手动删除该用户后重新运行脚本")
-            return
+            print("删除旧账号并重新创建...")
+            await session.execute(
+                text("DELETE FROM user WHERE username = :username"),
+                {"username": ADMIN_USERNAME},
+            )
+            # Continue to insert
 
+        # Generate UUID for SQLite compatibility
+        user_id = str(uuid.uuid4())
+        
         await session.execute(
             text("""
                 INSERT INTO user (id, username, email, password_hash, nickname, role, is_first_login, is_active)
-                VALUES (UUID(), :username, :email, :password_hash, :nickname, 'admin', FALSE, TRUE)
+                VALUES (:id, :username, :email, :password_hash, :nickname, 'ADMIN', FALSE, TRUE)
             """),
             {
+                "id": user_id,
                 "username": ADMIN_USERNAME,
                 "email": ADMIN_EMAIL,
                 "password_hash": password_hash,
