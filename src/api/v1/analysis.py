@@ -180,6 +180,7 @@ def _calculate_similarity(distance: float | None) -> float | None:
     """计算相似度分数（0-1）。
 
     将距离转换为相似度，使用余弦相似度公式。
+    适配 Chroma 默认的 Squared L2 Distance (范围 0-4)。
 
     Args:
         distance: 向量距离
@@ -189,7 +190,9 @@ def _calculate_similarity(distance: float | None) -> float | None:
     """
     if distance is None:
         return None
-    return max(0.0, min(1.0, 1 - distance))
+    # 归一化 L2 距离 -> 相似度
+    # distance = 2 * (1 - cos_sim) => cos_sim = 1 - distance / 2
+    return max(0.0, 1.0 - distance / 2.0)
 
 
 def _analyze_query_results(sources: list[QueryResult]) -> QueryResultAnalytics:
@@ -347,7 +350,9 @@ async def rag_query(
                 content=doc["content"],
                 metadata=doc["metadata"],
                 distance=doc.get("distance"),
-                similarity_score=_calculate_similarity(doc.get("distance")),
+                similarity_score=doc.get("similarity_score")
+                if doc.get("similarity_score") is not None
+                else _calculate_similarity(doc.get("distance")),
             )
             for doc in result["sources"]
         ]
@@ -424,7 +429,9 @@ async def rag_query_with_analytics(
                 content=doc["content"],
                 metadata=doc["metadata"],
                 distance=doc.get("distance"),
-                similarity_score=_calculate_similarity(doc.get("distance")),
+                similarity_score=doc.get("similarity_score")
+                if doc.get("similarity_score") is not None
+                else _calculate_similarity(doc.get("distance")),
             )
             for doc in result["sources"]
         ]
@@ -679,7 +686,9 @@ async def execute_rag_query_task(
                 content=doc["content"],
                 metadata=doc["metadata"],
                 distance=doc.get("distance"),
-                similarity_score=_calculate_similarity(doc.get("distance")),
+                similarity_score=doc.get("similarity_score")
+                if doc.get("similarity_score") is not None
+                else _calculate_similarity(doc.get("distance")),
             )
             for doc in result["sources"]
         ]
@@ -812,7 +821,7 @@ async def get_analysis_task(task_id: str) -> APIResponse[TaskInfoDict]:
         result=task.result,
         error=task.error,
         created_at=task.created_at.isoformat() if task.created_at else "",
-        updated_at=task.updated_at.isoformat() if task.updated_at else "",
+        updated_at=task.created_at.isoformat() if task.created_at else "",  # TaskInfo has no updated_at, use created_at
     )
 
     return APIResponse(

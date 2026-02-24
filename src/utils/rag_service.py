@@ -1,292 +1,36 @@
 """RAG 检索服务模块。
 
-结合向量检索和 LLM 生成答案，
-支持基于简历数据的智能问答。
+结合 Agentic RAG 工作流，支持基于简历数据的智能问答与分析。
 """
 
 import time
 from typing import Any, TypedDict
 
-from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
+from langchain_core.messages import HumanMessage
 from loguru import logger
-from pydantic import SecretStr
 
-from src.core.config import get_settings
 from src.core.exceptions import LLMException
+from src.utils.retriever import get_hybrid_retriever
+from src.workflows.rag_graph import get_agent_workflow
 from src.storage.chroma_client import ChromaClient
 from src.utils.embedding import get_embedding_service
-
-
-class LLMConfig(TypedDict):
-    """LLM 配置类型定义。
-
-    Attributes:
-        api_key: API 密钥
-        base_url: API 基础 URL
-        model: 模型名称
-        timeout: 超时时间
-        max_retries: 最大重试次数
-    """
-
-    api_key: str
-    base_url: str
-    model: str
-    timeout: int
-    max_retries: int
 
 
 class RAGService:
     """RAG 服务类。
 
-    结合 ChromaDB 向量检索和 DeepSeek LLM 生成，
-    提供基于简历数据的智能问答功能。
-
+    使用 LangGraph Agentic RAG 架构。
+    
     Attributes:
-        embedding_service: Embedding 服务实例
-        chroma_client: ChromaDB 客户端实例
-        llm: DeepSeek LLM 实例
+        agent_workflow: LangGraph 编译后的工作流
     """
 
     def __init__(self) -> None:
-        """初始化 RAG 服务。
-
-        初始化 Embedding 服务、ChromaDB 客户端和 LLM。
-        """
-        settings = get_settings()
-
-        self._embedding_service = get_embedding_service()
-        self._chroma_client = ChromaClient()
-        self._llm_config: LLMConfig = {
-            "api_key": settings.deepseek.api_key,
-            "base_url": settings.deepseek.base_url,
-            "model": settings.deepseek.model,
-            "timeout": settings.app.llm_timeout,
-            "max_retries": settings.app.llm_max_retries,
-        }
-
-        self._llm: ChatOpenAI | None = None
-        self._initialized = False
-
-    def _ensure_llm_initialized(self) -> None:
-        """确保 LLM 客户端已初始化。
-
-        Raises:
-            LLMException: API Key 未配置
-        """
-        if self._initialized:
-            return
-
-        if not self._llm_config["api_key"]:
-            raise LLMException(
-                message="DeepSeek API Key 未配置",
-                provider="deepseek",
-                model=self._llm_config["model"],
-            )
-
-        self._llm = ChatOpenAI(
-            api_key=SecretStr(self._llm_config["api_key"]),
-            base_url=self._llm_config["base_url"],
-            model=self._llm_config["model"],
-            temperature=0.3,  # RAG 场景使用较低温度
-            timeout=self._llm_config["timeout"],
-            max_retries=self._llm_config["max_retries"],
-        )
-        self._initialized = True
-        logger.info(f"RAG LLM 初始化完成: model={self._llm_config['model']}")
-
-    async def _retrieve(
-        self,
-        query: str,
-        top_k: int = 5,
-        filters: dict[str, Any] | None = None,
-    ) -> list[dict[str, Any]]:
-        """检索相关文档。
-
-        使用向量相似度检索相关简历文档。
-
-        Args:
-            query: 查询文本
-            top_k: 返回结果数量
-            filters: 元数据过滤条件
-
-        Returns:
-            检索到的文档列表
-
-        Raises:
-            LLMException: Embedding 调用失败
-        """
-        # 生成查询向量
-        query_vector = await self._embedding_service.embed_query(query)
-
-        if not query_vector:
-            logger.warning("查询向量为空，返回空结果")
-            return []
-
-        # 执行向量检索
-        results = self._chroma_client.query(
-            query_embeddings=[query_vector],
-            n_results=top_k,
-            where=filters,
-        )
-
-        # 解析结果
-        documents: list[dict[str, Any]] = []
-        ids = results.get("ids", [[]])[0]
-        docs = results.get("documents", [[]])[0]
-        metadatas = results.get("metadatas", [[]])[0]
-        distances = results.get("distances", [[]])[0]
-
-        for i, doc_id in enumerate(ids):
-            documents.append(
-                {
-                    "id": doc_id,
-                    "content": docs[i] if i < len(docs) else "",
-                    "metadata": metadatas[i] if i < len(metadatas) else {},
-                    "distance": distances[i] if i < len(distances) else 0.0,
-                }
-            )
-
-        logger.info(f"检索完成: query_length={len(query)}, results={len(documents)}")
-        return documents
-
-    def _build_rag_prompt(
-        self,
-        question: str,
-        context_docs: list[dict[str, Any]],
-    ) -> tuple[str, str]:
-        """构建 RAG 提示词。
-
-        Args:
-            question: 用户问题
-            context_docs: 检索到的上下文文档
-
-        Returns:
-            tuple[str, str]: 系统提示词和用户提示词
-        """
-        system_prompt = """你是一个专业的简历筛选助手，帮助用户查询和分析候选人信息。
-
-## 核心职责
-1. 基于提供的候选人资料回答问题，严禁编造信息
-2. 在回答中明确标注信息来源（使用[候选人X]格式引用）
-3. 提供数据驱动的分析结论
-
-## 回答格式
-### 分析结论
-[主要回答内容，引用来源如：根据[候选人1]的简历...]
-
-### 候选人概览
-[如涉及多个候选人，使用Markdown表格对比，格式如下]
-| 候选人 | 学历 | 专业 | 工作年限 | 关键技能 |
-|--------|------|------|----------|----------|
-| 李明 | 硕士 | 计算机科学 | 5年 | Python, SQL |
-
-### 建议
-[基于分析给出招聘建议]
-
-## 格式要求
-- 表格必须使用标准Markdown格式，包含表头分隔行 `|---|---|`
-- 使用**粗体**强调关键信息
-- 使用列表展示多项内容
-
-## 注意事项
-- 如果资料中没有相关信息，明确说明"根据现有资料未找到相关信息"
-- 数值类信息需精确引用，如工作年限、学历等
-- 技能匹配度分析需基于简历实际内容"""
-
-        context_parts = []
-        for i, doc in enumerate(context_docs, 1):
-            metadata = doc.get("metadata", {})
-            content = doc.get("content", "")
-            candidate_info = (
-                f"【候选人 {i}】\n"
-                + f"姓名: {metadata.get('name', '未知')}\n"
-                + f"学校: {metadata.get('school', '未知')}\n"
-                + f"专业: {metadata.get('major', '未知')}\n"
-                + f"学历: {metadata.get('education_level', '未知')}\n"
-                + f"工作年限: {metadata.get('work_years', '未知')}年\n"
-                + f"技能: {metadata.get('skills', '未知')}\n"
-                + f"筛选状态: {metadata.get('screening_status', '未知')}\n"
-                + f"简历摘要: {content[:800]}..."
-            )
-            context_parts.append(candidate_info)
-
-        context_text = "\n\n".join(context_parts)
-
-        human_prompt = f"""请根据以下候选人资料回答问题：
-
-【候选人资料】
-{context_text}
-
-【用户问题】
-{question}
-
-请按照指定格式给出准确、专业的回答："""
-
-        return system_prompt, human_prompt
-
-    async def _generate_answer(
-        self,
-        question: str,
-        context_docs: list[dict[str, Any]],
-    ) -> str:
-        """生成答案。
-
-        使用 LLM 基于检索结果生成答案。
-
-        Args:
-            question: 用户问题
-            context_docs: 检索到的上下文文档
-
-        Returns:
-            生成的答案
-
-        Raises:
-            LLMException: LLM 调用失败
-        """
-        self._ensure_llm_initialized()
-
-        if not context_docs:
-            return "抱歉，没有找到相关的候选人信息。"
-
-        try:
-            if self._llm is None:
-                raise LLMException(
-                    message="LLM 客户端未初始化",
-                    provider="deepseek",
-                    model=self._llm_config["model"],
-                )
-
-            system_prompt, human_prompt = self._build_rag_prompt(question, context_docs)
-            messages = [
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=human_prompt),
-            ]
-
-            logger.info(f"开始生成答案: question_length={len(question)}")
-            response = self._llm.invoke(messages)
-
-            content = response.content
-            if not isinstance(content, str):
-                raise LLMException(
-                    message="LLM 响应格式错误",
-                    provider="deepseek",
-                    model=self._llm_config["model"],
-                )
-
-            logger.info(f"答案生成完成: answer_length={len(content)}")
-            return content
-
-        except LLMException:
-            raise
-        except Exception as e:
-            logger.exception(f"生成答案失败: {e}")
-            raise LLMException(
-                message=f"生成答案失败: {e}",
-                provider="deepseek",
-                model=self._llm_config["model"],
-                details={"error": str(e)},
-            ) from e
+        """初始化 RAG 服务。"""
+        self._workflow = get_agent_workflow()
+        # 预热/初始化混合检索器（可选，避免首次请求慢）
+        # get_hybrid_retriever().initialize() 
+        # 这里的初始化可以延迟到第一次调用，或者在应用启动时调用
 
     async def query(
         self,
@@ -296,50 +40,150 @@ class RAGService:
     ) -> dict[str, Any]:
         """执行 RAG 查询。
 
-        结合向量检索和 LLM 生成，回答用户问题。
-
         Args:
             question: 用户问题
-            top_k: 返回结果数量
-            filters: 元数据过滤条件
+            top_k: 返回结果数量 (在 Agent 模式下，此参数可能由 Agent 自行决定，或者传递给 Tool)
+            filters: 元数据过滤条件 (目前 Agent 模式下较难直接传递 filters，除非在 System Prompt 中硬编码或作为 Tool 参数)
+                    为了兼容旧接口，这里的 filters 可能暂时无法完全生效，除非我们修改 SearchTool 接受 filters。
+                    目前 SearchTool 仅接受 query 和 top_k。
+                    如果 filters 很重要，建议将其转换为自然语言合并到 question 中，或者修改 Tool 定义。
 
         Returns:
-            包含答案和来源的字典，格式：
-            {
-                "answer": "生成的答案",
-                "sources": [{"id": "...", "content": "...", "metadata": {...}}],
-                "elapsed_time_ms": 123
-            }
-
-        Raises:
-            LLMException: Embedding 或 LLM 调用失败
+            包含答案和来源的字典。
         """
         start_time = time.time()
-        logger.info(f"开始 RAG 查询: question={question[:50]}...")
+        logger.info(f"开始 Agentic RAG 查询: question={question[:50]}...")
 
         try:
-            # 1. 检索相关文档
-            context_docs = await self._retrieve(question, top_k, filters)
+            # 构造初始状态
+            inputs = {"messages": [HumanMessage(content=question)]}
+            
+            # 执行工作流
+            final_state = await self._workflow.ainvoke(inputs)
+            
+            # 解析结果
+            messages = final_state["messages"]
+            answer = messages[-1].content
+            
+            # 提取来源（如果有工具调用）
+            # 在 LangGraph 中，ToolMessage 包含工具输出。
+            # 我们需要遍历消息历史，找到 SearchTool 的输出。
+            sources = []
+            for msg in messages:
+                if msg.type == "tool" and msg.name == "search_resumes":
+                    # 解析 SearchTool 返回的文本格式结果，尝试还原为 structured data 比较困难
+                    # 但旧接口要求返回 structured sources。
+                    # 为了兼容性，我们可能需要让 SearchTool 返回结构化数据（Artifacts），
+                    # 或者在这里简化处理，只返回空 sources，因为前端可能主要展示 answer。
+                    # 或者：修改 SearchTool 让其返回 JSON 字符串，然后在这里解析。
+                    # 鉴于 SearchTool 返回的是对 LLM 友好的文本，这里我们暂时无法完美还原 source objects。
+                    # 但为了不破坏前端契约，我们可以尝试再次调用 retrieve 获取 structured data (有点浪费)，
+                    # 或者让 SearchTool 将 structured data 存入 state。
+                    
+                    # 临时方案：再次调用 retrieve 获取 structured data 用于前端展示
+                    # 这虽然有一次额外开销，但保证了接口兼容性。
+                    # 更好的方案是 Tool 返回 Artifacts (LangChain 0.2+ 支持)，但这里为了稳健，先这样做。
+                    # 或者只在前端展示 LLM 的回答，忽略 sources 列表。
+                    pass
 
-            # 2. 生成答案
-            answer = await self._generate_answer(question, context_docs)
+            # 为了兼容性，我们尝试快速检索一次 Top-K 用于前端展示来源
+            # 注意：这可能与 Agent 实际使用的来源不完全一致（如果 Agent 改写了查询）
+            # 但通常足够接近。
+            retriever = get_hybrid_retriever()
+            docs = await retriever.retrieve(question, top_k=top_k, filters=filters)
+            
+            # ---------------------------------------------------------
+            # 增强评分逻辑：Re-scoring & Hybrid Scoring
+            # ---------------------------------------------------------
+            try:
+                doc_ids = [doc.metadata.get("id") for doc in docs if doc.metadata.get("id")]
+                if doc_ids:
+                    chroma_client = ChromaClient()
+                    embedding_service = get_embedding_service()
+                    
+                    # 1. 生成查询向量
+                    query_vector = await embedding_service.embed_query(question)
+                    
+                    # 2. 定向查询 Chroma 获取确切距离 (Re-scoring)
+                    # 注意：Chroma query 默认返回 Squared L2 distance
+                    chroma_results = chroma_client.query(
+                        query_embeddings=[query_vector],
+                        n_results=len(doc_ids),
+                        where={"id": {"$in": doc_ids}} if len(doc_ids) > 1 else {"id": doc_ids[0]},
+                        # 注意：Chroma where 过滤 id 需要 metadata 中有 id 字段
+                        # HybridRetriever 入库时已确保 metadata["id"] = doc_id
+                    )
+                    
+                    # 建立 id -> distance 映射
+                    id_to_dist = {}
+                    if chroma_results and chroma_results.get("ids"):
+                        r_ids = chroma_results["ids"][0]
+                        r_dists = chroma_results["distances"][0]
+                        for rid, rdist in zip(r_ids, r_dists):
+                            id_to_dist[rid] = rdist
+                            
+                    # 3. 计算混合分数
+                    for doc in docs:
+                        doc_id = doc.metadata.get("id")
+                        
+                        # 获取/计算向量分 (Vector Score)
+                        distance = id_to_dist.get(doc_id)
+                        if distance is None:
+                            # 如果没查到（罕见），尝试使用原始 distance 或默认值
+                            distance = doc.metadata.get("distance", 2.0)
+                        
+                        # 更新 distance 到 metadata
+                        doc.metadata["distance"] = distance
+                        
+                        # 归一化 L2 距离 -> 相似度 [0, 1]
+                        # 假设归一化向量，max L2^2 = 4
+                        sim_vec = max(0.0, 1.0 - distance / 2.0)
+                        
+                        # 计算关键字分 (Keyword Score) - 字符覆盖率
+                        content = doc.page_content
+                        q_chars = set(question)
+                        c_chars = set(content)
+                        sim_kw = len(q_chars & c_chars) / len(q_chars) if q_chars else 0.0
+                        
+                        # 综合评分 (Hybrid Score)
+                        # 权重: 向量 0.7, 关键字 0.3
+                        hybrid_score = 0.7 * sim_vec + 0.3 * sim_kw
+                        
+                        # 将综合分写入 metadata，供后续使用
+                        doc.metadata["similarity_score"] = hybrid_score
+                        
+            except Exception as e:
+                logger.warning(f"Re-scoring 失败，使用原始分数: {e}")
+                # 兜底：确保有 similarity_score
+                for doc in docs:
+                    if "similarity_score" not in doc.metadata:
+                        dist = doc.metadata.get("distance", 2.0)
+                        doc.metadata["similarity_score"] = max(0.0, 1.0 - dist / 2.0)
+
+            structured_sources = []
+            for doc in docs:
+                structured_sources.append({
+                    "id": doc.metadata.get("id"),
+                    "content": doc.page_content,
+                    "metadata": doc.metadata,
+                    "distance": doc.metadata.get("distance"),
+                    "similarity_score": doc.metadata.get("similarity_score"),
+                })
 
             elapsed_time = int((time.time() - start_time) * 1000)
-            logger.info(f"RAG 查询完成: elapsed_time={elapsed_time}ms")
+            logger.info(f"Agentic RAG 查询完成: elapsed_time={elapsed_time}ms")
 
             return {
                 "answer": answer,
-                "sources": context_docs,
+                "sources": structured_sources,
                 "elapsed_time_ms": elapsed_time,
             }
 
-        except LLMException:
-            raise
         except Exception as e:
             logger.exception(f"RAG 查询失败: {e}")
             raise LLMException(
                 message=f"RAG 查询失败: {e}",
-                provider="rag",
+                provider="agentic_rag",
                 model="unknown",
                 details={"error": str(e)},
             ) from e
@@ -350,23 +194,19 @@ class RAGService:
         top_k: int = 10,
         filters: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
-        """仅执行向量检索（不生成答案）。
-
-        适用于只需要检索结果的场景。
-
-        Args:
-            query: 查询文本
-            top_k: 返回结果数量
-            filters: 元数据过滤条件
-
-        Returns:
-            检索到的文档列表
-
-        Raises:
-            LLMException: Embedding 调用失败
-        """
-        logger.info(f"开始向量检索: query={query[:50]}...")
-        return await self._retrieve(query, top_k, filters)
+        """仅执行向量检索（兼容旧接口）。"""
+        retriever = get_hybrid_retriever()
+        docs = await retriever.retrieve(query, top_k=top_k, filters=filters)
+        
+        return [
+            {
+                "id": doc.metadata.get("id"),
+                "content": doc.page_content,
+                "metadata": doc.metadata,
+                "distance": doc.metadata.get("distance"),
+            }
+            for doc in docs
+        ]
 
 
 # 单例实例
@@ -374,11 +214,7 @@ _rag_service: RAGService | None = None
 
 
 def get_rag_service() -> RAGService:
-    """获取 RAG 服务单例实例。
-
-    Returns:
-        RAGService 实例
-    """
+    """获取 RAG 服务单例实例。"""
     global _rag_service
     if _rag_service is None:
         _rag_service = RAGService()

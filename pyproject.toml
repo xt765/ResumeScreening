@@ -38,6 +38,8 @@ dependencies = [
     "python-jose[cryptography]>=3.3.0",
     "passlib[bcrypt]>=1.7.4",
     "mcp>=1.26.0",
+    "rank-bm25>=0.2.2",
+    "bcrypt==4.0.1",
 ]
 
 [project.optional-dependencies]
