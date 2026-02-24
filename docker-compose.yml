@@ -1,5 +1,5 @@
 # ==================== Docker Compose 编排配置 ====================
-# 人才简历智能筛选系统
+# 人才简历智能筛选系统 - 生产级配置
 
 services:
   # ==================== 前端服务 ====================
@@ -23,18 +23,26 @@ services:
       timeout: 10s
       retries: 3
       start_period: 5s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`resume.localhost`)"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+      - "com.docker.compose.project=resume-screening"
+      - "com.docker.compose.service=frontend"
 
   # ==================== 后端服务 ====================
   backend:
     build:
       context: .
       dockerfile: Dockerfile
+      target: runner
     image: resume-screening-backend:latest
     container_name: resume-backend
     restart: unless-stopped
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     environment:
+      # 应用配置
       - APP_DEBUG=${APP_DEBUG:-false}
       - APP_LOG_LEVEL=${APP_LOG_LEVEL:-INFO}
       - APP_LOG_DIR=/app/logs
@@ -42,35 +50,53 @@ services:
       - APP_MAX_UPLOAD_SIZE=${APP_MAX_UPLOAD_SIZE:-10485760}
       - APP_LLM_TIMEOUT=${APP_LLM_TIMEOUT:-30}
       - APP_LLM_MAX_RETRIES=${APP_LLM_MAX_RETRIES:-3}
+      
+      # 数据库配置
       - MYSQL_HOST=${MYSQL_HOST:-mysql}
       - MYSQL_PORT=${MYSQL_PORT:-3306}
       - MYSQL_USER=${MYSQL_USER:-root}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD:-root123}
       - MYSQL_DATABASE=${MYSQL_DATABASE:-resume_screening}
+      - MYSQL_USE_SQLITE=${MYSQL_USE_SQLITE:-false}
+      
+      # 对象存储配置
       - MINIO_ENDPOINT=${MINIO_ENDPOINT:-minio:9000}
       - MINIO_CONSOLE_URL=${MINIO_CONSOLE_URL:-http://localhost:9001}
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
       - MINIO_BUCKET=${MINIO_BUCKET:-resume-images}
       - MINIO_SECURE=${MINIO_SECURE:-false}
+      
+      # 缓存配置
       - REDIS_HOST=${REDIS_HOST:-redis}
       - REDIS_PORT=${REDIS_PORT:-6379}
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
       - REDIS_DB=${REDIS_DB:-0}
+      
+      # 向量数据库配置
       - CHROMA_PERSIST_DIR=/app/data/chroma
       - CHROMA_COLLECTION=${CHROMA_COLLECTION:-talent_resumes}
+      
+      # AI 服务配置
       - DS_API_KEY=${DS_API_KEY:-}
       - DS_BASE_URL=${DS_BASE_URL:-https://api.deepseek.com}
       - DS_MODEL=${DS_MODEL:-deepseek-chat}
       - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY:-}
       - DASHSCOPE_BASE_URL=${DASHSCOPE_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
       - DASHSCOPE_EMBEDDING_MODEL=${DASHSCOPE_EMBEDDING_MODEL:-text-embedding-v3}
+      
+      # JWT 配置
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-resume-screening-jwt-secret-key-32bytes!}
       - JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
       - JWT_ACCESS_TOKEN_EXPIRE_MINUTES=${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
+      
+      # 监控配置
+      - PROMETHEUS_METRICS_PORT=${PROMETHEUS_METRICS_PORT:-9090}
+      - GRAFANA_PORT=${GRAFANA_PORT:-3001}
     volumes:
       - backend-logs:/app/logs
       - chroma-data:/app/data/chroma
+      - ./uploads:/app/uploads
     networks:
       - resume-network
     depends_on:
@@ -86,10 +112,22 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`api.resume.localhost`)"
+      - "traefik.http.services.backend.loadbalancer.server.port=8000"
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
 
   # ==================== MySQL 数据库 ====================
   mysql:
-    image: docker.m.daocloud.io/mysql:8.0
+    image: mysql:8.0
     container_name: resume-mysql
     restart: unless-stopped
     ports:
@@ -97,10 +135,13 @@ services:
     environment:
       - MYSQL_ROOT_PASSWORD=${MYSQL_PASSWORD:-root123}
       - MYSQL_DATABASE=${MYSQL_DATABASE:-resume_screening}
+      - MYSQL_USER=${MYSQL_USER:-resume_user}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-resume_pass123}
       - MYSQL_CHARACTER_SET_SERVER=utf8mb4
       - MYSQL_COLLATION_SERVER=utf8mb4_unicode_ci
     volumes:
       - mysql-data:/var/lib/mysql
+      - ./scripts/mysql-init:/docker-entrypoint-initdb.d
     networks:
       - resume-network
     healthcheck:
@@ -109,15 +150,36 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --innodb-buffer-pool-size=1G
+      --max-connections=200
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
 
   # ==================== Redis 缓存 ====================
   redis:
-    image: docker.m.daocloud.io/redis:7-alpine
+    image: redis:7-alpine
     container_name: resume-redis
     restart: unless-stopped
     ports:
       - "${REDIS_EXPOSE_PORT:-6379}:6379"
-    command: redis-server --appendonly yes
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
     volumes:
       - redis-data:/data
     networks:
@@ -128,10 +190,18 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.2'
+          memory: 256M
 
   # ==================== MinIO 对象存储 ====================
   minio:
-    image: docker.m.daocloud.io/minio/minio:latest
+    image: minio/minio:latest
     container_name: resume-minio
     restart: unless-stopped
     ports:
@@ -151,22 +221,24 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.2'
+          memory: 256M
 
-# ==================== 网络配置 ====================
-networks:
-  resume-network:
-    driver: bridge
-    name: resume-network
-
-# ==================== 数据卷配置 ====================
-volumes:
-  mysql-data:
-    name: resume-mysql-data
-  redis-data:
-    name: resume-redis-data
-  minio-data:
-    name: resume-minio-data
-  chroma-data:
-    name: resume-chroma-data
-  backend-logs:
-    name: resume-backend-logs
+  # ==================== 监控服务 ====================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: resume-prometheus
+    restart: unless-stopped
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config
