@@ -81,3 +81,23 @@ node_modules/
 # Lock files (optional, uncomment if needed)
 # uv.lock
 # poetry.lock
+
+# Windows
+desktop.ini
+$RECYCLE.BIN/
+
+# Backup files
+*.bak
+
+# UV
+.uv/
+
+# PyInstaller
+*.spec
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Jupyter
+.ipynb_checkpoints
