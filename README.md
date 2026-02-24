@@ -217,7 +217,10 @@ graph TD
     
     LangGraph --> LLM
     LangGraph --> Embedding
-    LangGraph --> Data_Layer
+    LangGraph --> MySQL
+    LangGraph --> MinIO
+    LangGraph --> Chroma
+    LangGraph --> Redis
     
     style User fill:#2563eb,color:#fff
     style Nginx fill:#64748b,color:#fff

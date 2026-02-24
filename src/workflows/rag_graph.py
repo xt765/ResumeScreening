@@ -69,7 +69,7 @@ class AgentWorkflow:
 - 回答要客观、准确，基于事实（工具返回的数据）。
 - 如果没有找到相关信息，请明确告知用户。
 - 对于简历检索结果，请总结候选人的核心优势。
-""")
+"""
 
     async def agent_node(self, state: AgentState):
         """Agent 节点：调用 LLM 决策。"""

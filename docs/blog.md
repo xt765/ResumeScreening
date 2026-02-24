@@ -222,11 +222,15 @@ graph TD
     
     N1 --> LLM
     N2 --> LLM
-    N3 --> Data_Layer
+    N3 --> MySQL
+    N3 --> MinIO
+    N3 --> Chroma
+    N3 --> Embedding
     N4 --> Redis
     
     RAG --> LLM
     RAG --> Chroma
+    RAG --> Embedding
     
     style User fill:#2563eb,color:#fff
     style Nginx fill:#64748b,color:#fff
