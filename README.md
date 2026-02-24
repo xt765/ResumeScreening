@@ -2,8 +2,6 @@
 
 **基于 LangChain + LangGraph + FastAPI 的智能简历筛选平台，集成 LLM 实现智能解析、筛选和 RAG 问答。**
 
-🌐 **语言**: [English](README.md) | 中文
-
 [![CSDN Blog](https://img.shields.io/badge/CSDN-玄同765-orange?style=flat-square&logo=csdn)](https://blog.csdn.net/Yunyi_Chi)
 [![GitHub](https://img.shields.io/badge/GitHub-ResumeScreening-black?style=flat-square&logo=github)](https://github.com/xt765/ResumeScreening)
 [![Gitee](https://img.shields.io/badge/Gitee-ResumeScreening-red?style=flat-square&logo=gitee)](https://gitee.com/xt765/resume-screening)
