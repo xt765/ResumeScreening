@@ -5,7 +5,7 @@
 ### 1. Install Dependency Tools
 
 ```bash
-# Install Python 3.13+
+# Install Python 3.10-3.13 (Note: <3.14 due to pydantic v1 compatibility)
 # Windows: Download from python.org
 # macOS: brew install python@3.13
 # Linux: sudo apt install python3.13

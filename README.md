@@ -10,7 +10,7 @@
 [![GitHub](https://img.shields.io/badge/GitHub-ResumeScreening-black?style=flat-square&logo=github)](https://github.com/xt765/ResumeScreening)
 [![Gitee](https://img.shields.io/badge/Gitee-ResumeScreening-red?style=flat-square&logo=gitee)](https://gitee.com/xt765/resume-screening)
 
-![Python](https://img.shields.io/badge/Python-3.13+-blue?style=flat-square&logo=python)
+![Python](https://img.shields.io/badge/Python-3.10%20|%203.11%20|%203.12%20|%203.13-blue?style=flat-square&logo=python)
 ![Ruff](https://img.shields.io/badge/Ruff-Formatter-orange?style=flat-square&logo=ruff)
 ![Basedpyright](https://img.shields.io/badge/Basedpyright-TypeCheck-purple?style=flat-square)
 ![Docker](https://img.shields.io/badge/Docker-Containerized-blue?style=flat-square&logo=docker)
@@ -295,7 +295,7 @@ erDiagram
 
 | Software | Version | Description |
 |----------|---------|-------------|
-| Python | 3.13+ | Core development language |
+| Python | 3.10-3.13 | Core development language (Note: <3.14 due to pydantic v1 compatibility) |
 | Docker | 24.0+ | Containerized deployment |
 | Docker Compose | 2.20+ | Service orchestration |
 | uv | Latest | Python package manager |

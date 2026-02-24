@@ -5,7 +5,7 @@
 ### 1. 安装依赖工具
 
 ```bash
-# 安装 Python 3.13+
+# 安装 Python 3.10-3.13 (注意：因 pydantic v1 兼容性，不支持 3.14+)
 # Windows: 从 python.org 下载安装
 # macOS: brew install python@3.13
 # Linux: sudo apt install python3.13

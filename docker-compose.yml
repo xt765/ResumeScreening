@@ -89,7 +89,7 @@ services:
 
   # ==================== MySQL 数据库 ====================
   mysql:
-    image: mysql:8.0
+    image: docker.m.daocloud.io/mysql:8.0
     container_name: resume-mysql
     restart: unless-stopped
     ports:
@@ -112,7 +112,7 @@ services:
 
   # ==================== Redis 缓存 ====================
   redis:
-    image: redis:7-alpine
+    image: docker.m.daocloud.io/redis:7-alpine
     container_name: resume-redis
     restart: unless-stopped
     ports:
@@ -131,7 +131,7 @@ services:
 
   # ==================== MinIO 对象存储 ====================
   minio:
-    image: minio/minio:latest
+    image: docker.m.daocloud.io/minio/minio:latest
     container_name: resume-minio
     restart: unless-stopped
     ports:

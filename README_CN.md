@@ -10,7 +10,7 @@
 [![GitHub](https://img.shields.io/badge/GitHub-ResumeScreening-black?style=flat-square&logo=github)](https://github.com/xt765/ResumeScreening)
 [![Gitee](https://img.shields.io/badge/Gitee-ResumeScreening-red?style=flat-square&logo=gitee)](https://gitee.com/xt765/resume-screening)
 
-![Python](https://img.shields.io/badge/Python-3.13+-blue?style=flat-square&logo=python)
+![Python](https://img.shields.io/badge/Python-3.10%20|%203.11%20|%203.12%20|%203.13-blue?style=flat-square&logo=python)
 ![Ruff](https://img.shields.io/badge/Ruff-Formatter-orange?style=flat-square&logo=ruff)
 ![Basedpyright](https://img.shields.io/badge/Basedpyright-TypeCheck-purple?style=flat-square)
 ![Docker](https://img.shields.io/badge/Docker-Containerized-blue?style=flat-square&logo=docker)
@@ -463,7 +463,7 @@ erDiagram
 
 | 软件 | 版本 | 说明 | 安装方式 |
 |------|------|------|----------|
-| Python | 3.13+ | 核心开发语言 | 官网下载或 pyenv |
+| Python | 3.10-3.13 | 核心开发语言 (注意：因 pydantic v1 兼容性，不支持 3.14+) | 官网下载或 pyenv |
 | Docker | 24.0+ | 容器化部署 | Docker Desktop |
 | Docker Compose | 2.20+ | 服务编排 | Docker Desktop 自带 |
 | uv | 最新版 | Python 包管理器 | `pip install uv` |
