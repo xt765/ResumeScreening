@@ -39,22 +39,30 @@
 传统人工筛选与本系统对比如下：
 
 ```mermaid
-graph TB
-    subgraph 传统方式
-        A1[人工阅读简历] --> A2[主观判断筛选]
-        A2 --> A3[手动录入信息]
-        A3 --> A4[Excel存储管理]
+graph LR
+    subgraph Legacy [传统招聘流程]
+        direction LR
+        A1[人工阅读简历] --> A2{主观判断}
+        A2 -->|通过| A3[手动录入Excel]
+        A2 -->|淘汰| A4[丢弃]
+        A3 --> A5[人工检索查找]
     end
+    style Legacy fill:#f9fafb,stroke:#e5e7eb
 ```
 
 ```mermaid
-graph TB
-    subgraph 本系统
-        B1[AI自动解析] --> B2[LLM智能筛选]
-        B2 --> B3[结构化存储]
-        B3 --> B4[智能问答检索]
+graph LR
+    subgraph System [智能筛选系统]
+        direction LR
+        B1[AI自动解析] --> B2{LLM智能筛选}
+        B2 -->|自动结构化| B3[多维数据库]
+        B3 --> B4[自然语言问答]
     end
-    style B1 fill:#ccffcc
+    style System fill:#ecfdf5,stroke:#a7f3d0
+    style B1 fill:#d1fae5,stroke:#34d399
+    style B2 fill:#d1fae5,stroke:#34d399
+    style B3 fill:#d1fae5,stroke:#34d399
+    style B4 fill:#d1fae5,stroke:#34d399
 ```
 
 **对比说明**：
@@ -77,51 +85,50 @@ graph TB
 系统采用分层架构设计，各层职责清晰，便于维护和扩展：
 
 ```mermaid
-graph TB
-    subgraph 前端层["前端展示层"]
-        UI[响应式Web界面<br/>HTML/CSS/JavaScript]
-        WS[WebSocket实时通信<br/>进度推送]
-    end
+graph TD
+    User((用户/HR))
     
-    subgraph API层["API服务层"]
-        FastAPI[FastAPI异步框架<br/>高性能RESTful API]
-        Auth[JWT认证模块<br/>无状态Token认证]
-        Route[路由分发<br/>统一入口管理]
+    subgraph Frontend [前端交互层]
+        UI[Web 界面]
+        Monitor[监控面板]
     end
-    
-    subgraph 工作流层["工作流引擎层"]
-        LG[LangGraph状态机<br/>可视化工作流编排]
-        Node1[解析节点<br/>ParseExtractNode]
-        Node2[筛选节点<br/>FilterNode]
-        Node3[存储节点<br/>StoreNode]
-        Node4[缓存节点<br/>CacheNode]
+
+    subgraph Gateway [网关层]
+        API_GW[API 网关 / 负载均衡]
     end
-    
-    subgraph AI层["AI能力层"]
-        LLM[DeepSeek大模型<br/>智能理解与生成]
-        EMB[DashScope向量化<br/>中文语义优化]
-        RAG[RAG检索增强<br/>知识库问答]
+
+    subgraph Service [后端服务层]
+        Auth[认证服务]
+        Resume[简历管理]
+        Analysis[智能分析]
+        Workflow[工作流引擎]
     end
-    
-    subgraph 存储层["数据存储层"]
-        MySQL[(MySQL 8.0<br/>关系数据存储)]
-        Redis[(Redis 7<br/>缓存与任务队列)]
-        MinIO[(MinIO<br/>图片对象存储)]
-        Chroma[(ChromaDB<br/>向量数据存储)]
+
+    subgraph AI_Core [AI 能力层]
+        LLM[DeepSeek LLM]
+        Embedding[向量化模型]
+        RAG[RAG 检索引擎]
     end
-    
-    UI --> FastAPI
-    WS --> FastAPI
-    FastAPI --> LG
-    LG --> Node1 --> Node2 --> Node3 --> Node4
-    Node1 --> LLM
-    Node3 --> EMB
-    Node3 --> MySQL
-    Node3 --> MinIO
-    Node3 --> Chroma
-    Node4 --> Redis
-    RAG --> LLM
-    RAG --> Chroma
+
+    subgraph Data [数据存储层]
+        MySQL[(MySQL)]
+        Redis[(Redis)]
+        MinIO[(MinIO)]
+        Chroma[(ChromaDB)]
+    end
+
+    User <--> Frontend
+    Frontend <--> Gateway
+    Gateway <--> Service
+    Service <--> AI_Core
+    Service <--> Data
+
+    style User fill:#2563eb,color:#fff
+    style Frontend fill:#dbeafe
+    style Gateway fill:#f3f4f6
+    style Service fill:#d1fae5
+    style AI_Core fill:#fae8ff
+    style Data fill:#ffedd5
 ```
 
 **架构设计理念**：
@@ -148,13 +155,19 @@ graph TB
 系统经过优化，各项性能指标表现优异：
 
 ```mermaid
-graph LR
-    subgraph 性能指标
-        A[单份简历处理<br/>3-5秒]
-        B[批量上传<br/>支持50+文件]
-        C[向量检索<br/>毫秒级响应]
-        D[并发处理<br/>异步架构]
+graph TD
+    subgraph Performance [系统性能指标]
+        A[单份简历处理<br/><b>3-5 秒</b>]
+        B[批量并发处理<br/><b>50+ 文件</b>]
+        C[向量检索响应<br/><b>< 100ms</b>]
+        D[系统可用性<br/><b>99.9%</b>]
     end
+    
+    style Performance fill:#f8fafc,stroke:#e2e8f0
+    style A fill:#dbeafe,stroke:#3b82f6
+    style B fill:#d1fae5,stroke:#10b981
+    style C fill:#fae8ff,stroke:#a855f7
+    style D fill:#ffedd5,stroke:#f97316
 ```
 
 | 指标 | 数值 | 说明 | 对比传统方式 |
@@ -172,47 +185,46 @@ graph LR
 系统采用微服务架构思想设计，支持容器化部署和水平扩展：
 
 ```mermaid
-graph TB
-    subgraph 用户层["用户接入层"]
-        User[用户/HR<br/>浏览器访问]
+graph TD
+    User((用户)) --> Nginx[Nginx 网关]
+    
+    subgraph App_Layer [应用服务]
+        API[FastAPI 后端]
+        WS[WebSocket 服务]
     end
     
-    subgraph 接入层["网关接入层"]
-        Nginx[Nginx反向代理<br/>负载均衡/SSL终止/静态资源]
+    subgraph Workflow_Layer [工作流引擎]
+        LangGraph[LangGraph 状态机]
     end
     
-    subgraph 应用层["应用服务层"]
-        API[FastAPI服务<br/>RESTful API]
-        WSS[WebSocket服务<br/>实时进度推送]
+    subgraph AI_Layer [AI 能力]
+        LLM[DeepSeek API]
+        Embedding[DashScope API]
     end
     
-    subgraph 工作流引擎["工作流引擎层"]
-        WF[LangGraph工作流<br/>状态机编排]
+    subgraph Data_Layer [数据存储]
+        MySQL[(MySQL)]
+        Redis[(Redis)]
+        MinIO[(MinIO)]
+        Chroma[(ChromaDB)]
     end
     
-    subgraph AI服务["AI能力服务"]
-        LLM[DeepSeek LLM<br/>大语言模型]
-        EMB[DashScope Embedding<br/>文本向量化]
-    end
-    
-    subgraph 数据层["数据存储层"]
-        DB[(MySQL 8.0<br/>关系数据库)]
-        Cache[(Redis 7<br/>缓存服务)]
-        OSS[(MinIO<br/>对象存储)]
-        Vec[(ChromaDB<br/>向量数据库)]
-    end
-    
-    User --> Nginx
     Nginx --> API
-    Nginx --> WSS
-    API --> WF
-    WSS --> WF
-    WF --> LLM
-    WF --> EMB
-    WF --> DB
-    WF --> Cache
-    WF --> OSS
-    WF --> Vec
+    Nginx --> WS
+    
+    API --> LangGraph
+    WS --> LangGraph
+    
+    LangGraph --> LLM
+    LangGraph --> Embedding
+    LangGraph --> Data_Layer
+    
+    style User fill:#2563eb,color:#fff
+    style Nginx fill:#64748b,color:#fff
+    style App_Layer fill:#e0f2fe
+    style Workflow_Layer fill:#dcfce7
+    style AI_Layer fill:#f3e8ff
+    style Data_Layer fill:#ffedd5
 ```
 
 **各层职责说明**：
@@ -250,31 +262,48 @@ graph TB
 简历处理采用 LangGraph 状态机工作流，分为 4 个节点顺序执行：
 
 ```mermaid
-graph TB
-    A([用户上传简历]) --> B[解析提取节点]
-    B --> C[筛选判断节点]
-    C --> D[数据存储节点]
-    D --> E[缓存节点]
-    E --> F([返回处理结果])
+graph TD
+    Start([开始]) --> Upload[用户上传简历]
     
-    B --> B1[解析文档PDF/DOCX]
-    B --> B2[提取文本和图片]
-    B --> B3[LLM提取信息]
-    B --> B4[人脸检测]
+    subgraph P1 [阶段一：智能解析]
+        direction TB
+        Upload --> Parse{文件类型?}
+        Parse -->|PDF/DOCX| Extract[文本/图片提取]
+        Extract --> LLM1[LLM 信息抽取]
+        LLM1 --> Face[人脸检测]
+    end
     
-    C --> C1[获取筛选条件]
-    C --> C2[构建筛选Prompt]
-    C --> C3[LLM判断]
-    C --> C4[生成筛选原因]
+    subgraph P2 [阶段二：智能筛选]
+        direction TB
+        Face --> Cond[加载筛选条件]
+        Cond --> Prompt[构建筛选 Prompt]
+        Prompt --> LLM2[LLM 语义判断]
+        LLM2 --> Reason[生成筛选理由]
+    end
     
-    D --> D1[加密敏感信息]
-    D --> D2[保存MySQL]
-    D --> D3[上传MinIO]
-    D --> D4[向量存ChromaDB]
+    subgraph P3 [阶段三：数据存储]
+        direction TB
+        Reason --> Encrypt[敏感信息加密]
+        Encrypt --> SaveDB[(MySQL 存储)]
+        SaveDB --> SaveOSS[(MinIO 存储)]
+        SaveOSS --> Embed[文本向量化]
+        Embed --> SaveVec[(ChromaDB 存储)]
+    end
     
-    E --> E1[缓存Redis]
-    E --> E2[更新任务状态]
-    E --> E3[WebSocket推送]
+    subgraph P4 [阶段四：反馈通知]
+        direction TB
+        SaveVec --> Cache[Redis 缓存结果]
+        Cache --> Notify[WebSocket 推送进度]
+    end
+
+    Notify --> End([流程结束])
+
+    style Start fill:#2563eb,color:#fff
+    style End fill:#2563eb,color:#fff
+    style P1 fill:#eff6ff,stroke:#bfdbfe
+    style P2 fill:#f0fdf4,stroke:#bbf7d0
+    style P3 fill:#fff7ed,stroke:#fed7aa
+    style P4 fill:#faf5ff,stroke:#e9d5ff
 ```
 
 **各节点详细说明**：
@@ -356,22 +385,32 @@ RAG（Retrieval-Augmented Generation）检索增强生成是本系统的核心�
 
 ```mermaid
 sequenceDiagram
-    participant U as 用户
-    participant A as API服务
-    participant E as Embedding服务
-    participant C as ChromaDB
-    participant L as DeepSeek LLM
+    participant User as 用户
+    participant API as API 服务
+    participant Embed as Embedding 服务
+    participant DB as 向量数据库 (Chroma)
+    participant LLM as 大语言模型 (DeepSeek)
     
-    U->>A: 提交问题<br/>"有哪些5年经验的Java开发？"
-    A->>A: 问题预处理<br/>去除停用词/分词
-    A->>E: 问题向量化
-    E-->>A: 返回向量<br/>[0.123, 0.456, ...]
-    A->>C: 向量相似度检索<br/>余弦相似度 Top-K
-    C-->>A: 返回相关简历<br/>相似度>0.8的候选人
-    A->>A: 构建上下文<br/>拼接简历摘要
-    A->>L: 发送Prompt + 上下文
-    L-->>A: 生成回答<br/>自然语言描述
-    A-->>U: 返回结果+来源<br/>可追溯的简历链接
+    User->>API: 提问: "有哪些5年经验的Java开发?"
+    activate API
+    
+    API->>Embed: 问题向量化
+    activate Embed
+    Embed-->>API: 返回查询向量
+    deactivate Embed
+    
+    API->>DB: 相似度检索 (Top-K)
+    activate DB
+    DB-->>API: 返回相关简历片段
+    deactivate DB
+    
+    API->>LLM: 发送 Prompt + 简历上下文
+    activate LLM
+    LLM-->>API: 生成自然语言回答 + 智能推荐指数
+    deactivate LLM
+    
+    API-->>User: 返回回答、推荐理由及来源链接
+    deactivate API
 ```
 
 **RAG 技术优势**：
@@ -396,47 +435,29 @@ sequenceDiagram
 
 ```mermaid
 erDiagram
-    User ||--o{ TalentInfo : manages
-    Condition ||--o{ TalentInfo : filters
+    User ||--o{ TalentInfo : "管理"
+    Condition ||--o{ TalentInfo : "筛选"
     
     User {
-        string id PK "用户ID，UUID格式"
-        string username UK "用户名，唯一"
-        string password_hash "密码哈希，bcrypt"
-        string email "邮箱地址"
-        string role "角色：admin/hr/viewer"
-        boolean is_active "是否激活"
-        datetime created_at "创建时间"
-        datetime updated_at "更新时间"
+        string id PK "UUID"
+        string username "用户名"
+        string password_hash "加密密码"
+        string role "角色"
     }
     
     TalentInfo {
-        string id PK "人才ID，UUID格式"
+        string id PK "UUID"
         string name "姓名"
-        string phone "手机号，AES加密"
-        string email "邮箱，AES加密"
         string education_level "学历"
-        string school "毕业院校"
-        string major "专业"
-        int work_years "工作年限"
-        json skills "技能列表，JSON格式"
-        json work_experience "工作经历，JSON格式"
-        json projects "项目经历，JSON格式"
-        string screening_status "筛选状态"
-        string content_hash "内容哈希，去重用"
-        datetime created_at "创建时间"
-        datetime updated_at "更新时间"
-        boolean is_deleted "是否删除"
+        int work_years "工龄"
+        json skills "技能"
+        string screening_status "状态"
     }
     
     Condition {
-        string id PK "条件ID，UUID格式"
-        string name "条件名称"
-        json conditions "条件配置，JSON格式"
-        string description "条件描述"
-        datetime created_at "创建时间"
-        datetime updated_at "更新时间"
-        boolean is_deleted "是否删除"
+        string id PK "UUID"
+        string name "名称"
+        json rules "规则配置"
     }
 ```
 
@@ -553,18 +574,42 @@ ResumeScreening/
 
 ```mermaid
 stateDiagram-v2
-    [*] --> ParseExtract: 接收简历
-    ParseExtract --> Filter: 解析成功
+    [*] --> ParseExtract: 提交简历
+    
+    state ParseExtract {
+        [*] --> Analyzing: 文档解析
+        Analyzing --> Extracting: 内容提取
+        Extracting --> [*]: 提取成功
+    }
+    
+    ParseExtract --> Filter: 解析完成
     ParseExtract --> Error: 解析失败
+    
+    state Filter {
+        [*] --> Matching: 规则匹配
+        Matching --> Judging: LLM判断
+        Judging --> [*]: 筛选完成
+    }
     
     Filter --> Store: 筛选完成
     Filter --> Error: 筛选失败
     
+    state Store {
+        [*] --> Encrypting: 数据加密
+        Encrypting --> Saving: 多库写入
+        Saving --> [*]: 存储完成
+    }
+    
     Store --> Cache: 存储成功
     Store --> Error: 存储失败
     
-    Cache --> [*]: 处理完成
-    Error --> [*]: 记录错误
+    Cache --> [*]: 任务结束
+    Error --> [*]: 异常终止
+    
+    note right of Error
+        记录错误日志
+        通知用户重试
+    end note
 ```
 
 **技术优势**：
@@ -598,13 +643,22 @@ graph LR
 系统采用多级缓存提升性能：
 
 ```mermaid
-graph TB
-    A[请求到达] --> B{Redis缓存}
-    B -->|命中| C[返回缓存数据<br/>延迟<1ms]
-    B -->|未命中| D{查询数据库}
-    D -->|找到| E[写入Redis缓存<br/>设置过期时间]
-    E --> F[返回结果]
-    D -->|未找到| G[返回空结果<br/>缓存空值防穿透]
+graph TD
+    Req[客户端请求] --> Cache{Redis 缓存?}
+    
+    Cache -->|命中| Return[直接返回结果]
+    Cache -->|未命中| DB[(数据库查询)]
+    
+    DB -->|查询成功| Write[写入缓存]
+    Write --> Return
+    
+    DB -->|查询为空| NullCache[写入空值缓存<br/>(防穿透)]
+    NullCache --> Return
+    
+    style Req fill:#2563eb,color:#fff
+    style Cache fill:#fef3c7,stroke:#f59e0b
+    style DB fill:#dbeafe,stroke:#3b82f6
+    style Return fill:#d1fae5,stroke:#10b981
 ```
 
 **缓存策略**：

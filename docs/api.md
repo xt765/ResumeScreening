@@ -14,31 +14,22 @@
 ## API 架构
 
 ```mermaid
-graph LR
-    subgraph 客户端
-        A[Web浏览器]
-        B[移动端]
+graph TD
+    Client[客户端] --> Nginx[Nginx 网关]
+    Nginx --> API[FastAPI 服务]
+    
+    subgraph Modules [API 模块]
+        API --> Auth[认证]
+        API --> User[用户]
+        API --> Resume[简历]
+        API --> Config[配置]
+        API --> Analysis[分析]
     end
     
-    subgraph API网关
-        C[Nginx反向代理]
-    end
-    
-    subgraph 认证层
-        D[JWT验证]
-    end
-    
-    subgraph API模块
-        E[认证API]
-        F[用户API]
-        G[条件API]
-        H[简历API]
-        I[分析API]
-        J[监控API]
-    end
-    
-    A --> C --> D --> E & F & G & H & I & J
-    B --> C
+    style Client fill:#2563eb,color:#fff
+    style Nginx fill:#64748b,color:#fff
+    style API fill:#dbeafe
+    style Modules fill:#f0f9ff
 ```
 
 ## 认证
@@ -47,24 +38,27 @@ graph LR
 
 ```mermaid
 sequenceDiagram
-    participant C as 客户端
-    participant A as API服务
-    participant D as 数据库
+    participant Client as 客户端
+    participant API as API 服务
+    participant DB as 数据库
     
-    C->>A: POST /auth/login<br/>username + password
-    A->>D: 查询用户
-    D-->>A: 用户信息
-    A->>A: 验证密码(bcrypt)
-    A->>A: 生成JWT Token
-    A-->>C: 返回Token
+    Client->>API: 登录 (POST /auth/login)
+    activate API
+    API->>DB: 验证凭证
+    DB-->>API: 用户信息
+    API->>API: 生成 JWT Token
+    API-->>Client: 返回 Token
+    deactivate API
     
-    Note over C,A: 后续请求携带Token
+    Note over Client,API: 后续请求 Header 携带 Authorization: Bearer {token}
     
-    C->>A: GET /talents<br/>Authorization: Bearer xxx
-    A->>A: 验证Token
-    A->>D: 查询数据
-    D-->>A: 返回数据
-    A-->>C: 返回结果
+    Client->>API: 业务请求 (GET /talents)
+    activate API
+    API->>API: 验证 Token 有效性
+    API->>DB: 执行查询
+    DB-->>API: 返回数据
+    API-->>Client: 返回 JSON 响应
+    deactivate API
 ```
 
 ### 登录
@@ -115,21 +109,21 @@ Authorization: Bearer <access_token>
 ### 用户管理流程
 
 ```mermaid
-graph TB
-    A[管理员登录] --> B[进入用户管理]
-    B --> C{操作类型}
-    C -->|创建| D[填写用户信息]
-    C -->|编辑| E[修改用户信息]
-    C -->|删除| F[确认删除]
-    C -->|查看| G[查看用户列表]
+graph TD
+    Admin[管理员] --> List[查看列表]
+    Admin --> Create[创建用户]
+    Admin --> Edit[编辑用户]
+    Admin --> Delete[删除用户]
     
-    D --> H[验证用户名唯一]
-    H -->|通过| I[创建用户]
-    H -->|失败| J[提示错误]
+    Create --> Check{用户名唯一?}
+    Check -->|是| DB[写入数据库]
+    Check -->|否| Error[返回错误]
     
-    E --> K[更新数据库]
-    F --> L[软删除用户]
-    G --> M[分页展示]
+    style Admin fill:#2563eb,color:#fff
+    style List fill:#eff6ff
+    style Create fill:#eff6ff
+    style Edit fill:#eff6ff
+    style Delete fill:#fee2e2
 ```
 
 ### 获取用户列表
@@ -212,26 +206,17 @@ Authorization: Bearer <token>
 ### 筛选条件结构
 
 ```mermaid
-graph TB
-    A[筛选条件] --> B[学历要求]
-    A --> C[技能要求]
-    A --> D[工作年限]
-    A --> E[院校层级]
+graph LR
+    Config[筛选配置] --> Edu[学历要求]
+    Config --> Skill[技能要求]
+    Config --> Exp[经验要求]
+    Config --> School[院校要求]
     
-    B --> B1[专科]
-    B --> B2[本科]
-    B --> B3[硕士]
-    B --> B4[博士]
-    
-    C --> C1[技能名称]
-    C --> C2[熟练程度<br/>精通/熟练/了解]
-    
-    D --> D1[最低年限]
-    D --> D2[最高年限]
-    
-    E --> E1[985]
-    E --> E2[211]
-    E --> E3[双一流]
+    style Config fill:#2563eb,color:#fff
+    style Edu fill:#eff6ff
+    style Skill fill:#eff6ff
+    style Exp fill:#eff6ff
+    style School fill:#eff6ff
 ```
 
 ### 获取筛选条件列表
@@ -321,20 +306,22 @@ Authorization: Bearer <token>
 
 ```mermaid
 sequenceDiagram
-    participant U as 用户
-    participant A as API
-    participant W as 工作流
-    participant S as 存储
+    participant User as 用户
+    participant API as API 服务
+    participant Workflow as 工作流引擎
+    participant Storage as 数据存储
     
-    U->>A: 上传简历
-    A->>A: 验证文件格式
-    A->>W: 启动工作流
-    W->>W: 解析文档
-    W->>W: LLM提取信息
-    W->>W: 智能筛选
-    W->>S: 存储数据
-    W-->>A: 处理完成
-    A-->>U: 返回结果
+    User->>API: 上传简历 (POST /upload)
+    API->>Workflow: 提交异步任务
+    Workflow-->>API: 返回 Task ID
+    API-->>User: 返回 Task ID
+    
+    par 后台处理
+        Workflow->>Workflow: 解析 & 提取
+        Workflow->>Workflow: 智能筛选
+        Workflow->>Storage: 存储结果
+        Workflow->>User: WebSocket 推送进度
+    end
 ```
 
 ### 获取人才列表
@@ -849,20 +836,20 @@ Authorization: Bearer <token>
 
 ```mermaid
 sequenceDiagram
-    participant C as 客户端
-    participant S as 服务端
+    participant Client as 客户端
+    participant Server as 服务端
     
-    C->>S: WebSocket连接请求
-    S->>S: 验证Token
-    S-->>C: 连接成功
+    Client->>Server: 建立 WebSocket 连接
+    Server->>Server: 验证 Token
+    Server-->>Client: 连接成功
     
-    loop 任务进行中
-        S->>C: 推送任务进度
-        C->>C: 更新UI
+    loop 任务执行中
+        Server->>Client: 推送进度 (JSON)
+        Client->>Client: 更新 UI
     end
     
-    S->>C: 推送任务完成
-    C->>S: 关闭连接
+    Server->>Client: 推送任务完成
+    Client->>Server: 关闭连接
 ```
 
 ### 连接

@@ -33,20 +33,25 @@
 ### 1.3 系统特性
 
 ```mermaid
-graph LR
-    subgraph 核心特性
-        A[智能解析<br/>自动提取20+字段]
-        B[智能筛选<br/>LLM语义理解]
-        C[智能问答<br/>RAG技术]
-        D[实时推送<br/>WebSocket]
+graph TD
+    subgraph Features [核心能力]
+        direction TB
+        A[智能解析] -->|自动提取| A1[20+ 关键字段]
+        B[智能筛选] -->|语义匹配| B1[自然语言条件]
+        C[智能问答] -->|RAG技术| C1[简历库对话]
+        D[实时反馈] -->|WebSocket| D1[全流程进度]
     end
   
-    subgraph 技术优势
-        E[异步架构<br/>高并发处理]
-        F[状态机工作流<br/>可恢复执行]
-        G[多级缓存<br/>毫秒级响应]
-        H[容器化部署<br/>一键启动]
+    subgraph Tech [技术底座]
+        direction TB
+        E[异步架构] --> E1[高并发吞吐]
+        F[状态机] --> F1[断点续传]
+        G[多级缓存] --> G1[毫秒级响应]
+        H[容器化] --> H1[一键部署]
     end
+    
+    style Features fill:#eff6ff,stroke:#bfdbfe
+    style Tech fill:#f0fdf4,stroke:#bbf7d0
 ```
 
 ## 2. 系统架构
@@ -56,55 +61,61 @@ graph LR
 系统采用分层架构设计，各层职责清晰，便于维护和扩展：
 
 ```mermaid
-graph TB
-    subgraph 用户层["用户接入层"]
-        User[用户/HR<br/>浏览器访问]
+graph TD
+    User((用户)) --> Nginx[Nginx 网关]
+    
+    subgraph App_Layer [应用服务]
+        API[FastAPI 后端]
+        WS[WebSocket 服务]
     end
-  
-    subgraph 网关层["网关接入层"]
-        Nginx[Nginx反向代理<br/>负载均衡/SSL终止/静态资源]
+    
+    subgraph Workflow_Layer [工作流引擎]
+        LangGraph[LangGraph 状态机]
+        
+        subgraph Nodes [处理节点]
+            N1[解析提取]
+            N2[智能筛选]
+            N3[数据存储]
+            N4[缓存通知]
+        end
     end
-  
-    subgraph 应用层["应用服务层"]
-        API[FastAPI服务<br/>RESTful API]
-        WSS[WebSocket服务<br/>实时进度推送]
+    
+    subgraph AI_Layer [AI 能力]
+        LLM[DeepSeek API]
+        Embedding[DashScope API]
+        RAG[RAG 引擎]
     end
-  
-    subgraph 工作流层["工作流引擎层"]
-        WF[LangGraph工作流<br/>状态机编排]
-        Node1[ParseExtractNode]
-        Node2[FilterNode]
-        Node3[StoreNode]
-        Node4[CacheNode]
+    
+    subgraph Data_Layer [数据存储]
+        MySQL[(MySQL)]
+        Redis[(Redis)]
+        MinIO[(MinIO)]
+        Chroma[(ChromaDB)]
     end
-  
-    subgraph AI层["AI能力层"]
-        LLM[DeepSeek LLM<br/>大语言模型]
-        EMB[DashScope Embedding<br/>文本向量化]
-        RAG[RAG检索增强<br/>智能问答]
-    end
-  
-    subgraph 存储层["数据存储层"]
-        DB[(MySQL 8.0<br/>关系数据库)]
-        Cache[(Redis 7<br/>缓存服务)]
-        OSS[(MinIO<br/>对象存储)]
-        Vec[(ChromaDB<br/>向量数据库)]
-    end
-  
-    User --> Nginx
+    
     Nginx --> API
-    Nginx --> WSS
-    API --> WF
-    WSS --> WF
-    WF --> Node1 --> Node2 --> Node3 --> Node4
-    Node1 --> LLM
-    Node3 --> EMB
-    Node3 --> DB
-    Node3 --> OSS
-    Node3 --> Vec
-    Node4 --> Cache
+    Nginx --> WS
+    
+    API --> LangGraph
+    WS --> LangGraph
+    
+    LangGraph --> N1 --> N2 --> N3 --> N4
+    
+    N1 --> LLM
+    N2 --> LLM
+    N3 --> Data_Layer
+    N4 --> Redis
+    
     RAG --> LLM
-    RAG --> Vec
+    RAG --> Chroma
+    
+    style User fill:#2563eb,color:#fff
+    style Nginx fill:#64748b,color:#fff
+    style App_Layer fill:#e0f2fe
+    style Workflow_Layer fill:#dcfce7
+    style AI_Layer fill:#f3e8ff
+    style Data_Layer fill:#ffedd5
+    style Nodes fill:#fff,stroke:#dcfce7
 ```
 
 **各层职责说明**：
@@ -193,43 +204,35 @@ src/storage/
 
 ```mermaid
 graph LR
-    subgraph 输入
-        A[简历文件<br/>PDF/DOCX]
-        B[筛选条件]
-        C[用户问题]
+    Input1[简历文件] --> Parse[解析]
+    Input2[筛选条件] --> Filter[筛选]
+    Input3[用户提问] --> RAG[问答]
+    
+    subgraph Process [核心处理]
+        Parse -->|提取文本| Extract[信息抽取]
+        Extract --> Filter
+        Filter -->|结构化| Store[存储]
+        RAG -->|检索| Search[向量搜索]
     end
-  
-    subgraph 处理
-        D[文档解析]
-        E[LLM提取]
-        F[智能筛选]
-        G[向量检索]
+    
+    subgraph Storage [持久化]
+        Store --> DB[(MySQL)]
+        Store --> OSS[(MinIO)]
+        Store --> Vec[(ChromaDB)]
     end
-  
-    subgraph 存储
-        H[(MySQL)]
-        I[(Redis)]
-        J[(MinIO)]
-        K[(ChromaDB)]
+    
+    subgraph Output [输出结果]
+        DB --> Info[人才信息]
+        Filter --> Result[筛选结果]
+        Search --> Answer[智能回答]
     end
-  
-    subgraph 输出
-        L[结构化人才信息]
-        M[筛选结果]
-        N[智能问答答案]
-    end
-  
-    A --> D --> E --> F
-    B --> F
-    E --> H
-    E --> J
-    E --> K
-    F --> H
-    F --> I
-    C --> G --> K
-    G --> N
-    H --> L
-    F --> M
+    
+    style Input1 fill:#f3f4f6
+    style Input2 fill:#f3f4f6
+    style Input3 fill:#f3f4f6
+    style Process fill:#e0f2fe
+    style Storage fill:#ffedd5
+    style Output fill:#dcfce7
 ```
 
 ## 3. 核心工作流设计
@@ -239,27 +242,48 @@ graph LR
 系统采用 LangGraph 构建 4 节点状态图工作流，每个节点职责明确：
 
 ```mermaid
-graph TB
-    A([用户上传简历]) --> B[解析提取节点]
-    B --> C[筛选判断节点]
-    C --> D[数据存储节点]
-    D --> E[缓存节点]
-    E --> F([返回处理结果])
+graph TD
+    Start([开始]) --> Upload[用户上传简历]
     
-    B --> B1[解析文档PDF/DOCX]
-    B --> B2[提取文本和图片]
-    B --> B3[LLM提取信息]
-    B --> B4[人脸检测]
+    subgraph P1 [阶段一：智能解析]
+        direction TB
+        Upload --> Parse{文件类型?}
+        Parse -->|PDF/DOCX| Extract[文本/图片提取]
+        Extract --> LLM1[LLM 信息抽取]
+        LLM1 --> Face[人脸检测]
+    end
     
-    C --> C1[获取筛选条件]
-    C --> C2[构建筛选Prompt]
-    C --> C3[LLM判断]
-    C --> C4[生成筛选原因]
+    subgraph P2 [阶段二：智能筛选]
+        direction TB
+        Face --> Cond[加载筛选条件]
+        Cond --> Prompt[构建筛选 Prompt]
+        Prompt --> LLM2[LLM 语义判断]
+        LLM2 --> Reason[生成筛选理由]
+    end
     
-    D --> D1[加密敏感信息]
-    D --> D2[保存MySQL]
-    D --> D3[上传MinIO]
-    D --> D4[向量存ChromaDB]
+    subgraph P3 [阶段三：数据存储]
+        direction TB
+        Reason --> Encrypt[敏感信息加密]
+        Encrypt --> SaveDB[(MySQL 存储)]
+        SaveDB --> SaveOSS[(MinIO 存储)]
+        SaveOSS --> Embed[文本向量化]
+        Embed --> SaveVec[(ChromaDB 存储)]
+    end
+    
+    subgraph P4 [阶段四：反馈通知]
+        direction TB
+        SaveVec --> Cache[Redis 缓存结果]
+        Cache --> Notify[WebSocket 推送进度]
+    end
+
+    Notify --> End([流程结束])
+
+    style Start fill:#2563eb,color:#fff
+    style End fill:#2563eb,color:#fff
+    style P1 fill:#eff6ff,stroke:#bfdbfe
+    style P2 fill:#f0fdf4,stroke:#bbf7d0
+    style P3 fill:#fff7ed,stroke:#fed7aa
+    style P4 fill:#faf5ff,stroke:#e9d5ff
 ```
 
 #### 各节点详细说明
@@ -383,41 +407,41 @@ class ResumeState(BaseModel):
 
 ```mermaid
 stateDiagram-v2
-    [*] --> ParseExtract: 接收简历
-    ParseExtract --> Filter: 解析成功
+    [*] --> ParseExtract: 提交简历
+    
+    state ParseExtract {
+        [*] --> Analyzing: 文档解析
+        Analyzing --> Extracting: 内容提取
+        Extracting --> [*]: 提取成功
+    }
+    
+    ParseExtract --> Filter: 解析完成
     ParseExtract --> Error: 解析失败
-  
+    
+    state Filter {
+        [*] --> Matching: 规则匹配
+        Matching --> Judging: LLM判断
+        Judging --> [*]: 筛选完成
+    }
+    
     Filter --> Store: 筛选完成
     Filter --> Error: 筛选失败
-  
+    
+    state Store {
+        [*] --> Encrypting: 数据加密
+        Encrypting --> Saving: 多库写入
+        Saving --> [*]: 存储完成
+    }
+    
     Store --> Cache: 存储成功
     Store --> Error: 存储失败
-  
-    Cache --> [*]: 处理完成
-    Error --> [*]: 记录错误日志
-  
-    note right of ParseExtract
-        文档解析
-        信息提取
-        人脸检测
-    end note
-  
-    note right of Filter
-        条件匹配
-        LLM判断
-        生成原因
-    end note
-  
-    note right of Store
-        数据加密
-        多存储写入
-        向量化
-    end note
-  
-    note right of Cache
-        结果缓存
-        状态更新
-        进度推送
+    
+    Cache --> [*]: 任务结束
+    Error --> [*]: 异常终止
+    
+    note right of Error
+        记录错误日志
+        通知用户重试
     end note
 ```
 
@@ -429,47 +453,29 @@ stateDiagram-v2
 
 ```mermaid
 erDiagram
-    User ||--o{ TalentInfo : manages
-    Condition ||--o{ TalentInfo : filters
-  
+    User ||--o{ TalentInfo : "管理"
+    Condition ||--o{ TalentInfo : "筛选"
+    
     User {
-        string id PK "用户ID，UUID格式"
-        string username UK "用户名，唯一"
-        string password_hash "密码哈希，bcrypt"
-        string email "邮箱地址"
-        string role "角色：admin/hr/viewer"
-        boolean is_active "是否激活"
-        datetime created_at "创建时间"
-        datetime updated_at "更新时间"
+        string id PK "UUID"
+        string username "用户名"
+        string password_hash "加密密码"
+        string role "角色"
     }
-  
+    
     TalentInfo {
-        string id PK "人才ID，UUID格式"
+        string id PK "UUID"
         string name "姓名"
-        string phone "手机号，AES加密"
-        string email "邮箱，AES加密"
         string education_level "学历"
-        string school "毕业院校"
-        string major "专业"
-        int work_years "工作年限"
-        json skills "技能列表，JSON格式"
-        json work_experience "工作经历，JSON格式"
-        json projects "项目经历，JSON格式"
-        string screening_status "筛选状态"
-        string content_hash "内容哈希，去重用"
-        datetime created_at "创建时间"
-        datetime updated_at "更新时间"
-        boolean is_deleted "是否删除"
+        int work_years "工龄"
+        json skills "技能"
+        string screening_status "状态"
     }
-  
+    
     Condition {
-        string id PK "条件ID，UUID格式"
-        string name "条件名称"
-        json conditions "条件配置，JSON格式"
-        string description "条件描述"
-        datetime created_at "创建时间"
-        datetime updated_at "更新时间"
-        boolean is_deleted "是否删除"
+        string id PK "UUID"
+        string name "名称"
+        json rules "规则配置"
     }
 ```
 
@@ -561,27 +567,38 @@ erDiagram
 
 ```mermaid
 sequenceDiagram
-    participant U as 用户
-    participant A as API
-    participant D as 数据库
-  
-    U->>A: 登录请求<br/>username + password
-    A->>D: 查询用户
-    D-->>A: 返回用户信息
-    A->>A: 验证密码<br/>bcrypt对比
-    A->>A: 生成JWT Token
-    A-->>U: 返回Token
-  
-    U->>A: 业务请求<br/>携带Token
-    A->>A: 验证Token<br/>解析用户信息
-    A->>A: 检查权限
-    alt 权限通过
-        A->>D: 执行业务操作
-        D-->>A: 返回结果
-        A-->>U: 返回响应
+    participant User as 用户
+    participant API as API 服务
+    participant DB as 数据库
+    
+    User->>API: 登录 (用户名/密码)
+    activate API
+    
+    API->>DB: 查询用户记录
+    activate DB
+    DB-->>API: 返回哈希密码
+    deactivate DB
+    
+    API->>API: 验证密码 (bcrypt)
+    API->>API: 生成 JWT Token
+    
+    API-->>User: 返回 Access Token
+    deactivate API
+    
+    User->>API: 业务请求 (Header携带Token)
+    activate API
+    
+    API->>API: 验证 Token 签名
+    API->>API: 解析用户权限
+    
+    alt 权限验证通过
+        API->>DB: 执行业务逻辑
+        DB-->>API: 返回数据
+        API-->>User: 返回响应
     else 权限不足
-        A-->>U: 403 Forbidden
+        API-->>User: 403 Forbidden
     end
+    deactivate API
 ```
 
 ### 5.2 数据加密
@@ -708,20 +725,18 @@ graph TB
 
 ```mermaid
 graph LR
-    A[健康检查请求] --> B{MySQL}
-    A --> C{Redis}
-    A --> D{MinIO}
-    A --> E{ChromaDB}
-  
-    B --> F[连接测试]
-    C --> G[PING命令]
-    D --> H[健康检查API]
-    E --> I[心跳检测]
-  
-    F --> J[返回状态]
-    G --> J
-    H --> J
-    I --> J
+    Check[监控探针] --> DB[(MySQL)]
+    Check --> Cache[(Redis)]
+    Check --> OSS[(MinIO)]
+    Check --> Vec[(ChromaDB)]
+    
+    DB -->|OK| Status[健康状态]
+    Cache -->|OK| Status
+    OSS -->|OK| Status
+    Vec -->|OK| Status
+    
+    style Check fill:#2563eb,color:#fff
+    style Status fill:#d1fae5,stroke:#10b981
 ```
 
 ### 7.3 监控指标

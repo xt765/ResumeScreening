@@ -179,7 +179,7 @@ const AnalysisPage = {
                     <div class="analytics-dashboard">
                         <!-- 核心指标卡片 -->
                         <div class="metrics-row">
-                            <div class="metric-card">
+                            <div class="metric-card" style="grid-column: span 2;">
                                 <div class="metric-icon primary">
                                     <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
                                         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
@@ -191,18 +191,6 @@ const AnalysisPage = {
                                 <div class="metric-info">
                                     <div class="metric-value" id="totalCount">0</div>
                                     <div class="metric-label">匹配人数</div>
-                                </div>
-                            </div>
-                            <div class="metric-card">
-                                <div class="metric-icon success">
-                                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                                        <polyline points="22 4 12 14.01 9 11.01"/>
-                                    </svg>
-                                </div>
-                                <div class="metric-info">
-                                    <div class="metric-value" id="avgSimilarity">0%</div>
-                                    <div class="metric-label">平均相似度</div>
                                 </div>
                             </div>
                         </div>
@@ -262,7 +250,6 @@ const AnalysisPage = {
                             <div class="sort-controls">
                                 <label class="form-label">排序方式：</label>
                                 <select class="form-control sort-select" id="sortSelect">
-                                    <option value="similarity">相似度优先</option>
                                     <option value="work_years">经验优先</option>
                                     <option value="education">学历优先</option>
                                 </select>
@@ -656,15 +643,9 @@ const AnalysisPage = {
         if (!analytics) return;
 
         const totalCount = document.getElementById('totalCount');
-        const avgSimilarity = document.getElementById('avgSimilarity');
 
         if (totalCount) {
             totalCount.textContent = analytics.total_count || 0;
-        }
-        if (avgSimilarity) {
-            avgSimilarity.textContent = analytics.avg_similarity
-                ? `${(analytics.avg_similarity * 100).toFixed(1)}%`
-                : '0%';
         }
 
         setTimeout(() => {
@@ -1009,11 +990,6 @@ const AnalysisPage = {
 
         container.innerHTML = sources.map((source, index) => {
             const metadata = source.metadata || {};
-            const similarity = source.similarity_score
-                ? source.similarity_score
-                : (source.distance ? 1 - source.distance : 0);
-            const similarityPercent = (similarity * 100).toFixed(1);
-            const similarityClass = this.getSimilarityClass(similarity);
 
             return `
                 <div class="candidate-card" data-id="${source.id}">
@@ -1048,16 +1024,6 @@ const AnalysisPage = {
                             return '';
                         })()}
                     </div>
-                    <div class="candidate-score ${similarityClass}">
-                        <div class="score-circle">
-                            <svg viewBox="0 0 36 36" class="circular-chart">
-                                <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
-                                <path class="circle" stroke-dasharray="${similarityPercent}, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
-                            </svg>
-                            <span class="score-text">${similarityPercent}%</span>
-                        </div>
-                        <span class="score-label">相似度</span>
-                    </div>
                     <div class="candidate-actions">
                         <button class="btn btn-sm btn-outline" onclick="AnalysisPage.viewTalentDetail('${source.id}')">
                             查看详情
@@ -1075,7 +1041,7 @@ const AnalysisPage = {
         if (!this.queryResults || !this.queryResults.sources) return;
 
         const sortSelect = document.getElementById('sortSelect');
-        const sortBy = sortSelect?.value || 'similarity';
+        const sortBy = sortSelect?.value || 'work_years';
 
         const sources = [...this.queryResults.sources];
 
@@ -1084,11 +1050,6 @@ const AnalysisPage = {
             const metaB = b.metadata || {};
 
             switch (sortBy) {
-                case 'similarity': {
-                    const scoreA = a.similarity_score || (a.distance ? 1 - a.distance : 0);
-                    const scoreB = b.similarity_score || (b.distance ? 1 - b.distance : 0);
-                    return scoreB - scoreA;
-                }
                 case 'work_years': {
                     return (metaB.work_years || 0) - (metaA.work_years || 0);
                 }

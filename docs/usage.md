@@ -6,11 +6,15 @@
 
 ```mermaid
 graph LR
-    A[访问系统] --> B[输入用户名密码]
-    B --> C{验证}
-    C -->|成功| D[进入首页]
-    C -->|失败| E[提示错误]
-    E --> B
+    User([访问系统]) --> Input[输入账号密码]
+    Input --> Check{验证凭证}
+    Check -->|通过| Home[进入首页]
+    Check -->|失败| Error[提示错误]
+    Error --> Input
+    
+    style User fill:#2563eb,color:#fff
+    style Home fill:#d1fae5,stroke:#10b981
+    style Error fill:#fee2e2,stroke:#ef4444
 ```
 
 ### 默认账户
@@ -31,22 +35,27 @@ graph LR
 ## 功能模块概览
 
 ```mermaid
-graph TB
-    A[系统首页] --> B[简历上传筛选]
-    A --> C[人才信息管理]
-    A --> D[筛选条件配置]
-    A --> E[智能分析问答]
-    A --> F[系统监控]
-    A --> G[用户管理]
+graph TD
+    Home[系统首页] --> Resume[简历上传筛选]
+    Home --> Talent[人才信息管理]
+    Home --> Config[筛选条件配置]
+    Home --> Analysis[智能分析问答]
+    Home --> Monitor[系统监控]
+    Home --> UserMgt[用户管理]
     
-    B --> B1[单个上传]
-    B --> B2[批量上传]
-    B --> B3[实时进度]
+    Resume --> R1[单个/批量上传]
+    Resume --> R2[实时进度]
     
-    C --> C1[人才列表]
-    C --> C2[详情查看]
-    C --> C3[状态更新]
-    C --> C4[批量操作]
+    Talent --> T1[详情查看]
+    Talent --> T2[状态更新]
+    
+    style Home fill:#2563eb,color:#fff
+    style Resume fill:#eff6ff
+    style Talent fill:#eff6ff
+    style Config fill:#eff6ff
+    style Analysis fill:#eff6ff
+    style Monitor fill:#eff6ff
+    style UserMgt fill:#eff6ff
 ```
 
 ## 简历上传筛选
@@ -58,24 +67,30 @@ graph TB
 ### 操作流程
 
 ```mermaid
-graph TB
-    A[进入上传页面] --> B[选择筛选条件]
-    B --> C{上传方式}
-    C -->|单个| D[选择单个文件]
-    C -->|批量| E[选择多个文件]
+graph TD
+    Start([开始上传]) --> Select[选择筛选条件]
+    Select --> Mode{上传方式}
+    Mode -->|单个文件| Single[选择文件]
+    Mode -->|批量文件| Batch[选择多文件]
     
-    D --> F[上传处理]
-    E --> F
+    Single --> Upload[上传处理]
+    Batch --> Upload
     
-    F --> G[系统自动处理]
-    G --> H[解析文档]
-    H --> I[提取信息]
-    I --> J[智能筛选]
-    J --> K[存储结果]
+    subgraph Process [系统自动处理]
+        Upload --> Parse[文档解析]
+        Parse --> Extract[信息提取]
+        Extract --> Filter[智能筛选]
+        Filter --> Save[结果存储]
+    end
     
-    K --> L{查看结果}
-    L -->|合格| M[标记为合格]
-    L -->|不合格| N[标记为不合格]
+    Save --> Review{人工复核}
+    Review -->|通过| Pass[标记合格]
+    Review -->|不通过| Fail[标记淘汰]
+    
+    style Start fill:#2563eb,color:#fff
+    style Process fill:#f0f9ff,stroke:#bae6fd
+    style Pass fill:#dcfce7
+    style Fail fill:#fee2e2
 ```
 
 ### 单个简历上传
@@ -120,23 +135,34 @@ graph TB
 ### 人才列表
 
 ```mermaid
-graph TB
-    A[人才列表页面] --> B[搜索筛选]
-    A --> C[列表展示]
-    A --> D[批量操作]
+graph TD
+    List[人才列表页面] --> Search[搜索/筛选]
+    List --> View[查看详情]
+    List --> Batch[批量操作]
     
-    B --> B1[关键词搜索]
-    B --> B2[学历筛选]
-    B --> B3[技能筛选]
-    B --> B4[状态筛选]
+    subgraph Filter [筛选维度]
+        Search --> F1[关键词]
+        Search --> F2[学历]
+        Search --> F3[技能]
+        Search --> F4[状态]
+    end
     
-    C --> C1[基本信息]
-    C --> C2[筛选状态]
-    C --> C3[操作按钮]
+    subgraph Detail [详情信息]
+        View --> D1[基本信息]
+        View --> D2[筛选理由]
+        View --> D3[简历原文]
+    end
     
-    D --> D1[批量删除]
-    D --> D2[批量更新状态]
-    D --> D3[导出数据]
+    subgraph Action [管理操作]
+        Batch --> A1[批量删除]
+        Batch --> A2[状态更新]
+        Batch --> A3[导出数据]
+    end
+    
+    style List fill:#2563eb,color:#fff
+    style Filter fill:#f0f9ff
+    style Detail fill:#fff7ed
+    style Action fill:#f0fdf4
 ```
 
 ### 搜索与筛选
@@ -183,27 +209,19 @@ graph TB
 ### 条件结构
 
 ```mermaid
-graph TB
-    A[筛选条件] --> B[基本信息]
-    A --> C[学历要求]
-    A --> D[技能要求]
-    A --> E[工作年限]
-    A --> F[院校层级]
+graph LR
+    Condition[筛选条件] --> Info[基本信息]
+    Condition --> Rules[规则配置]
     
-    B --> B1[条件名称]
-    B --> B2[条件描述]
+    subgraph RuleDetails [规则详情]
+        Rules --> R1[学历要求]
+        Rules --> R2[技能要求]
+        Rules --> R3[工作年限]
+        Rules --> R4[院校层级]
+    end
     
-    C --> C1[学历列表<br/>可多选]
-    
-    D --> D1[技能名称]
-    D --> D2[熟练程度]
-    
-    E --> E1[最低年限]
-    E --> E2[最高年限]
-    
-    F --> F1[985高校]
-    F --> F2[211高校]
-    F --> F3[双一流高校]
+    style Condition fill:#2563eb,color:#fff
+    style RuleDetails fill:#eff6ff
 ```
 
 ### 高级筛选逻辑
@@ -271,24 +289,23 @@ graph TB
 
 ```mermaid
 sequenceDiagram
-    participant U as 用户
-    participant S as 系统
-    participant A as AI引擎
+    participant User as 用户
+    participant System as 前端系统
+    participant Backend as 后端服务
     
-    U->>S: 输入查询条件
-    S->>S: 创建异步任务
-    S-->>U: 显示进度界面
-    U->>U: 可切换页面
+    User->>System: 输入查询条件
+    System->>Backend: 创建异步任务
+    Backend-->>System: 返回任务ID
+    System-->>User: 显示进度条
     
-    loop 后台处理
-        S->>A: 问题向量化
-        A->>A: 检索相关简历
-        A->>A: 生成分析结论
-        S-->>U: 推送进度更新
+    par 后台处理
+        Backend->>Backend: 向量检索
+        Backend->>Backend: LLM 分析生成
+        Backend->>System: WebSocket 推送进度
     end
     
-    S-->>U: 显示完整结果
-    U->>S: 导出报告（可选）
+    System-->>User: 显示最终分析报告
+    User->>System: 导出报告
 ```
 
 ### 支持的问题类型
@@ -359,26 +376,29 @@ sequenceDiagram
 ### 监控面板
 
 ```mermaid
-graph TB
-    subgraph 系统指标
-        A[CPU使用率]
-        B[内存使用率]
-        C[磁盘使用率]
-        D[系统运行时间]
+graph TD
+    subgraph Metrics [系统指标]
+        A[CPU 使用率]
+        B[内存 使用率]
+        C[磁盘 使用率]
     end
     
-    subgraph 业务指标
-        E[简历总数]
-        F[合格人数]
-        G[不合格人数]
+    subgraph Business [业务指标]
+        D[简历总数]
+        E[合格人数]
+        F[待筛选数]
     end
     
-    subgraph 服务状态
-        H[MySQL]
-        I[Redis]
-        J[MinIO]
-        K[ChromaDB]
+    subgraph Service [服务状态]
+        G[MySQL]
+        H[Redis]
+        I[MinIO]
+        J[ChromaDB]
     end
+    
+    style Metrics fill:#eff6ff
+    style Business fill:#f0fdf4
+    style Service fill:#fff7ed
 ```
 
 ### 查看系统指标
@@ -416,26 +436,28 @@ graph TB
 ### 用户角色权限
 
 ```mermaid
-graph TB
-    subgraph admin[管理员]
-        A1[用户管理]
-        A2[简历管理]
-        A3[条件配置]
-        A4[智能分析]
-        A5[系统监控]
+graph TD
+    subgraph Admin [管理员]
+        A[全功能访问]
     end
     
-    subgraph hr[HR人员]
-        B2[简历管理]
-        B3[条件配置]
-        B4[智能分析]
-        B5[系统监控]
+    subgraph HR [HR人员]
+        B1[简历管理]
+        B2[条件配置]
+        B3[智能分析]
     end
     
-    subgraph viewer[只读用户]
-        C2[简历查看]
-        C4[智能分析]
+    subgraph Viewer [只读用户]
+        C1[简历查看]
+        C2[智能分析]
     end
+    
+    Admin --> HR
+    HR --> Viewer
+    
+    style Admin fill:#dbeafe
+    style HR fill:#dcfce7
+    style Viewer fill:#f3f4f6
 ```
 
 ### 创建用户
