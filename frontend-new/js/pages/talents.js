@@ -617,7 +617,17 @@ const TalentsPage = {
 
     async showDetail(id) {
         try {
-            UI.showLoading();
+            // 先显示加载状态的模态框
+            const loadingContent = `
+                <div style="padding: 40px; text-align: center;">
+                    <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite; color: var(--primary-color); margin-bottom: 12px;">
+                        <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
+                    </svg>
+                    <div style="color: var(--text-secondary);">正在加载人才详情...</div>
+                </div>
+            `;
+            UI.showModal('人才详情', loadingContent, '', 'lg');
+
             const response = await talentsApi.getDetail(id);
 
             if (response.success) {
@@ -626,14 +636,23 @@ const TalentsPage = {
         } catch (error) {
             console.error('获取人才详情失败:', error);
             UI.toast('获取人才详情失败', 'error');
-        } finally {
-            UI.hideLoading();
+            UI.closeModal();
         }
     },
 
     async showEditModal(id) {
         try {
-            UI.showLoading();
+            // 先显示加载状态的模态框
+            const loadingContent = `
+                <div style="padding: 40px; text-align: center;">
+                    <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite; color: var(--primary-color); margin-bottom: 12px;">
+                        <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
+                    </svg>
+                    <div style="color: var(--text-secondary);">正在加载编辑信息...</div>
+                </div>
+            `;
+            UI.showModal('编辑人才信息', loadingContent, '', 'lg');
+
             const response = await talentsApi.getDetail(id);
 
             if (response.success) {
@@ -642,8 +661,7 @@ const TalentsPage = {
         } catch (error) {
             console.error('获取人才详情失败:', error);
             UI.toast('获取人才详情失败', 'error');
-        } finally {
-            UI.hideLoading();
+            UI.closeModal();
         }
     },
 
