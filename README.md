@@ -157,10 +157,10 @@ graph TD
 ```mermaid
 graph TD
     subgraph Performance [系统性能指标]
-        A[单份简历处理<br/><b>3-5 秒</b>]
-        B[批量并发处理<br/><b>50+ 文件</b>]
-        C[向量检索响应<br/><b>< 100ms</b>]
-        D[系统可用性<br/><b>99.9%</b>]
+        A["单份简历处理<br/><b>3-5 秒</b>"]
+        B["批量并发处理<br/><b>50+ 文件</b>"]
+        C["向量检索响应<br/><b>< 100ms</b>"]
+        D["系统可用性<br/><b>99.9%</b>"]
     end
     
     style Performance fill:#f8fafc,stroke:#e2e8f0
@@ -652,7 +652,7 @@ graph TD
     DB -->|查询成功| Write[写入缓存]
     Write --> Return
     
-    DB -->|查询为空| NullCache[写入空值缓存<br/>(防穿透)]
+    DB -->|查询为空| NullCache["写入空值缓存<br/>(防穿透)"]
     NullCache --> Return
     
     style Req fill:#2563eb,color:#fff
