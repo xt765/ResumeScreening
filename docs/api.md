@@ -26,10 +26,10 @@ graph TD
         API --> Analysis[分析]
     end
     
-    style Client fill:#2563eb,color:#fff
-    style Nginx fill:#64748b,color:#fff
-    style API fill:#dbeafe
-    style Modules fill:#f0f9ff
+    style Client fill:#e8f4f8,stroke:#7fb3d5
+    style Nginx fill:#d4edda,stroke:#90c695
+    style API fill:#fff3cd,stroke:#e0c97f
+    style Modules fill:#f8f9fa,stroke:#dee2e6
 ```
 
 ## 认证
@@ -119,11 +119,12 @@ graph TD
     Check -->|是| DB[写入数据库]
     Check -->|否| Error[返回错误]
     
-    style Admin fill:#2563eb,color:#fff
-    style List fill:#eff6ff
-    style Create fill:#eff6ff
-    style Edit fill:#eff6ff
-    style Delete fill:#fee2e2
+    style Admin fill:#e8f4f8,stroke:#7fb3d5
+    style List fill:#d4edda,stroke:#90c695
+    style Create fill:#d4edda,stroke:#90c695
+    style Edit fill:#d4edda,stroke:#90c695
+    style Delete fill:#f8d7da,stroke:#e8b4b8
+    style Check fill:#fff3cd,stroke:#e0c97f
 ```
 
 ### 获取用户列表
@@ -212,11 +213,11 @@ graph LR
     Config --> Exp[经验要求]
     Config --> School[院校要求]
     
-    style Config fill:#2563eb,color:#fff
-    style Edu fill:#eff6ff
-    style Skill fill:#eff6ff
-    style Exp fill:#eff6ff
-    style School fill:#eff6ff
+    style Config fill:#e8f4f8,stroke:#7fb3d5
+    style Edu fill:#d4edda,stroke:#90c695
+    style Skill fill:#d4edda,stroke:#90c695
+    style Exp fill:#d4edda,stroke:#90c695
+    style School fill:#d4edda,stroke:#90c695
 ```
 
 ### 获取筛选条件列表
@@ -741,20 +742,20 @@ Authorization: Bearer <token>
 
 ```mermaid
 graph TB
-    subgraph 监控目标
+    subgraph Targets [监控目标]
         A[MySQL]
         B[Redis]
         C[MinIO]
         D[ChromaDB]
     end
     
-    subgraph 监控服务
+    subgraph Monitor [监控服务]
         E[健康检查]
         F[指标采集]
         G[日志收集]
     end
     
-    subgraph 监控输出
+    subgraph Output [监控输出]
         H[API响应]
         I[日志文件]
         J[告警通知]
@@ -767,6 +768,10 @@ graph TB
     E --> H
     F --> H
     G --> I & J
+    
+    style Targets fill:#e8f4f8,stroke:#7fb3d5
+    style Monitor fill:#d4edda,stroke:#90c695
+    style Output fill:#fff3cd,stroke:#e0c97f
 ```
 
 ### 获取系统指标

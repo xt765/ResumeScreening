@@ -12,9 +12,10 @@ graph LR
     Check -->|失败| Error[提示错误]
     Error --> Input
     
-    style User fill:#2563eb,color:#fff
-    style Home fill:#d1fae5,stroke:#10b981
-    style Error fill:#fee2e2,stroke:#ef4444
+    style User fill:#e8f4f8,stroke:#7fb3d5
+    style Home fill:#d4edda,stroke:#90c695
+    style Error fill:#f8d7da,stroke:#e8b4b8
+    style Check fill:#fff3cd,stroke:#e0c97f
 ```
 
 ### 默认账户
@@ -49,13 +50,13 @@ graph TD
     Talent --> T1[详情查看]
     Talent --> T2[状态更新]
     
-    style Home fill:#2563eb,color:#fff
-    style Resume fill:#eff6ff
-    style Talent fill:#eff6ff
-    style Config fill:#eff6ff
-    style Analysis fill:#eff6ff
-    style Monitor fill:#eff6ff
-    style UserMgt fill:#eff6ff
+    style Home fill:#e8f4f8,stroke:#7fb3d5
+    style Resume fill:#d4edda,stroke:#90c695
+    style Talent fill:#d4edda,stroke:#90c695
+    style Config fill:#d4edda,stroke:#90c695
+    style Analysis fill:#d4edda,stroke:#90c695
+    style Monitor fill:#d4edda,stroke:#90c695
+    style UserMgt fill:#d4edda,stroke:#90c695
 ```
 
 ## 简历上传筛选
@@ -87,10 +88,10 @@ graph TD
     Review -->|通过| Pass[标记合格]
     Review -->|不通过| Fail[标记淘汰]
     
-    style Start fill:#2563eb,color:#fff
-    style Process fill:#f0f9ff,stroke:#bae6fd
-    style Pass fill:#dcfce7
-    style Fail fill:#fee2e2
+    style Start fill:#e8f4f8,stroke:#7fb3d5
+    style Process fill:#f8f9fa,stroke:#dee2e6
+    style Pass fill:#d4edda,stroke:#90c695
+    style Fail fill:#f8d7da,stroke:#e8b4b8
 ```
 
 ### 单个简历上传
@@ -159,10 +160,10 @@ graph TD
         Batch --> A3[导出数据]
     end
     
-    style List fill:#2563eb,color:#fff
-    style Filter fill:#f0f9ff
-    style Detail fill:#fff7ed
-    style Action fill:#f0fdf4
+    style List fill:#e8f4f8,stroke:#7fb3d5
+    style Filter fill:#d4edda,stroke:#90c695
+    style Detail fill:#fff3cd,stroke:#e0c97f
+    style Action fill:#e2d4f0,stroke:#b8a9d0
 ```
 
 ### 搜索与筛选
@@ -220,8 +221,8 @@ graph LR
         Rules --> R4[院校层级]
     end
     
-    style Condition fill:#2563eb,color:#fff
-    style RuleDetails fill:#eff6ff
+    style Condition fill:#e8f4f8,stroke:#7fb3d5
+    style RuleDetails fill:#d4edda,stroke:#90c695
 ```
 
 ### 高级筛选逻辑
@@ -396,9 +397,9 @@ graph TD
         J[ChromaDB]
     end
     
-    style Metrics fill:#eff6ff
-    style Business fill:#f0fdf4
-    style Service fill:#fff7ed
+    style Metrics fill:#e8f4f8,stroke:#7fb3d5
+    style Business fill:#d4edda,stroke:#90c695
+    style Service fill:#fff3cd,stroke:#e0c97f
 ```
 
 ### 查看系统指标
@@ -455,9 +456,9 @@ graph TD
     Admin --> HR
     HR --> Viewer
     
-    style Admin fill:#dbeafe
-    style HR fill:#dcfce7
-    style Viewer fill:#f3f4f6
+    style Admin fill:#e8f4f8,stroke:#7fb3d5
+    style HR fill:#d4edda,stroke:#90c695
+    style Viewer fill:#f8f9fa,stroke:#dee2e6
 ```
 
 ### 创建用户

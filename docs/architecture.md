@@ -50,8 +50,8 @@ graph TD
         H[容器化] --> H1[一键部署]
     end
     
-    style Features fill:#eff6ff,stroke:#bfdbfe
-    style Tech fill:#f0fdf4,stroke:#bbf7d0
+    style Features fill:#e8f4f8,stroke:#7fb3d5
+    style Tech fill:#d4edda,stroke:#90c695
 ```
 
 ## 2. 系统架构
@@ -113,13 +113,13 @@ graph TD
     RAG --> Chroma
     RAG --> Embedding
     
-    style User fill:#2563eb,color:#fff
-    style Nginx fill:#64748b,color:#fff
-    style App_Layer fill:#e0f2fe
-    style Workflow_Layer fill:#dcfce7
-    style AI_Layer fill:#f3e8ff
-    style Data_Layer fill:#ffedd5
-    style Nodes fill:#fff,stroke:#dcfce7
+    style User fill:#e8f4f8,stroke:#7fb3d5,stroke-width:1px
+    style Nginx fill:#e8e8e8,stroke:#666,stroke-width:1px
+    style App_Layer fill:#d4edda,stroke:#90c695,stroke-width:1px
+    style Workflow_Layer fill:#fff3cd,stroke:#e0c97f,stroke-width:1px
+    style AI_Layer fill:#e2d4f0,stroke:#c5a5d5,stroke-width:1px
+    style Data_Layer fill:#fce4ec,stroke:#e8b4c8,stroke-width:1px
+    style Nodes fill:#fff,stroke:#e0c97f
 ```
 
 **各层职责说明**：
@@ -231,12 +231,12 @@ graph LR
         Search --> Answer[智能回答]
     end
     
-    style Input1 fill:#f3f4f6
-    style Input2 fill:#f3f4f6
-    style Input3 fill:#f3f4f6
-    style Process fill:#e0f2fe
-    style Storage fill:#ffedd5
-    style Output fill:#dcfce7
+    style Input1 fill:#e8f4f8,stroke:#7fb3d5,stroke-width:1px
+    style Input2 fill:#e8f4f8,stroke:#7fb3d5,stroke-width:1px
+    style Input3 fill:#e8f4f8,stroke:#7fb3d5,stroke-width:1px
+    style Process fill:#d4edda,stroke:#90c695,stroke-width:1px
+    style Storage fill:#fff3cd,stroke:#e0c97f,stroke-width:1px
+    style Output fill:#e2d4f0,stroke:#c5a5d5,stroke-width:1px
 ```
 
 ## 3. 核心工作流设计
@@ -282,12 +282,12 @@ graph TD
 
     Notify --> End([流程结束])
 
-    style Start fill:#2563eb,color:#fff
-    style End fill:#2563eb,color:#fff
-    style P1 fill:#eff6ff,stroke:#bfdbfe
-    style P2 fill:#f0fdf4,stroke:#bbf7d0
-    style P3 fill:#fff7ed,stroke:#fed7aa
-    style P4 fill:#faf5ff,stroke:#e9d5ff
+    style Start fill:#e8f4f8,stroke:#7fb3d5,stroke-width:1px
+    style End fill:#e8f4f8,stroke:#7fb3d5,stroke-width:1px
+    style P1 fill:#e8f4f8,stroke:#7fb3d5,stroke-width:1px
+    style P2 fill:#d4edda,stroke:#90c695,stroke-width:1px
+    style P3 fill:#fff3cd,stroke:#e0c97f,stroke-width:1px
+    style P4 fill:#e2d4f0,stroke:#c5a5d5,stroke-width:1px
 ```
 
 #### 各节点详细说明
@@ -449,9 +449,130 @@ stateDiagram-v2
     end note
 ```
 
-## 4. 数据模型设计
+## 4. Agentic RAG 设计
 
-### 4.1 ER 图
+### 4.1 为什么选择 Agentic RAG？
+
+传统 RAG 的局限性：
+- **单次检索**: 只能基于原始查询检索一次，无法根据中间结果调整策略
+- **无推理能力**: 无法处理需要多步推理的复杂问题
+- **固定流程**: 检索和生成是固定的流水线，缺乏灵活性
+
+Agentic RAG 的优势：
+- **动态检索**: Agent 可以根据中间结果决定是否需要进一步检索
+- **多步推理**: 支持复杂问题的分解和逐步解决
+- **工具调用**: 可以调用多种工具（检索、统计、计算等）来获取信息
+- **自我修正**: 能够根据反馈调整策略，提高回答质量
+
+### 4.2 Agentic RAG 架构
+
+```mermaid
+flowchart TD
+    START([开始]) --> Agent[Agent节点<br/>推理与决策]
+    Agent --> Decision{需要工具?}
+    Decision -->|是| Tools[工具执行<br/>检索/统计]
+    Decision -->|否| END([生成答案])
+    Tools --> Agent
+    
+    style START fill:#e8f4f8,stroke:#7fb3d5,stroke-width:1px
+    style END fill:#e8f4f8,stroke:#7fb3d5,stroke-width:1px
+    style Agent fill:#d4edda,stroke:#90c695,stroke-width:1px
+    style Tools fill:#fff3cd,stroke:#e0c97f,stroke-width:1px
+    style Decision fill:#f8d7da,stroke:#e8b4b8,stroke-width:1px
+```
+
+### 4.3 工具集
+
+| 工具名称 | 功能描述 | 实现文件 |
+|---------|---------|---------|
+| `search_resumes` | 检索候选人简历 (混合检索) | `src/tools/search_tool.py` |
+| `count_talents` | 统计人才数量 | `src/tools/stats_tool.py` |
+
+### 4.4 Agentic RAG 工作流程示例
+
+```mermaid
+sequenceDiagram
+    participant User as 用户
+    participant Agent as Agent
+    participant Search as 检索工具
+    participant Stats as 统计工具
+    participant LLM as DeepSeek LLM
+
+    User->>Agent: "有3年以上Python经验的候选人有哪些？"
+    Agent->>LLM: 分析问题，决定调用检索工具
+    Agent->>Search: 调用search_resumes(关键词)
+    Search-->>Agent: 返回候选人列表
+    Agent->>LLM: 评估结果是否完整
+    Agent->>Stats: 调用count_talents(统计)
+    Stats-->>Agent: 返回数量统计
+    Agent->>LLM: 综合信息生成答案
+    Agent-->>User: 返回候选人推荐列表及推荐理由
+```
+
+## 5. 加权 RRF 混合检索设计
+
+### 5.1 为什么选择加权 RRF？
+
+单一检索方法的局限性：
+- **纯向量检索**: 对专业术语、精确匹配支持不足，可能遗漏关键词相关的文档
+- **纯关键词检索**: 无法理解语义相似性，对同义词、上下文理解能力弱
+
+加权 RRF 的优势：
+- **互补性强**: 向量检索捕获语义，BM25 捕获关键词，两者互补
+- **无需训练**: RRF 是无监督融合方法，不需要额外的训练数据
+- **可配置权重**: 根据不同场景调整权重，适应性强
+- **效果稳定**: 在多个基准测试中表现优异
+
+### 5.2 算法原理
+
+**RRF (Reciprocal Rank Fusion)** 公式：
+
+```
+RRF_score(d) = Σ (weight_i / (rank_i(d) + c))
+```
+
+其中：
+- `weight_i`: 第 i 个检索器的权重
+- `rank_i(d)`: 文档 d 在第 i 个检索器中的排名
+- `c`: 常数 (默认 60)，用于平滑排名影响
+
+### 5.3 RRF 融合流程图
+
+```mermaid
+flowchart LR
+    Query[用户查询] --> Vector[向量检索<br/>ChromaDB<br/>权重: 0.7]
+    Query --> BM25[关键词检索<br/>BM25<br/>权重: 0.3]
+    
+    Vector --> Rank1[排名列表1]
+    BM25 --> Rank2[排名列表2]
+    
+    Rank1 --> RRF[加权 RRF 融合<br/>score = Σ weight/(rank+c)]
+    Rank2 --> RRF
+    
+    RRF --> Sort[按分数排序]
+    Sort --> Result[融合结果]
+    
+    style Query fill:#e8f4f8,stroke:#7fb3d5,stroke-width:1px
+    style Vector fill:#d4edda,stroke:#90c695,stroke-width:1px
+    style BM25 fill:#fff3cd,stroke:#e0c97f,stroke-width:1px
+    style RRF fill:#e2d4f0,stroke:#c5a5d5,stroke-width:1px
+    style Result fill:#e8f4f8,stroke:#7fb3d5,stroke-width:1px
+```
+
+### 5.4 检索策略
+
+| 检索器 | 权重 | 类型 | 特点 |
+|--------|------|------|------|
+| ChromaRetriever | 0.7 | 向量检索 | 语义相似度，理解上下文含义 |
+| BM25Retriever | 0.3 | 关键词检索 | 精确匹配，适合专业术语 |
+
+**权重选择理由**：
+- 向量检索权重较高 (0.7)：简历筛选场景更注重语义理解，如"熟悉机器学习"应该匹配"掌握深度学习"
+- BM25 权重适中 (0.3)：保留关键词精确匹配能力，确保专业术语不被遗漏
+
+## 6. 数据模型设计
+
+### 6.1 ER 图
 
 系统数据模型包含三个核心实体：
 
@@ -483,16 +604,16 @@ erDiagram
     }
 ```
 
-### 4.2 实体关系说明
+### 6.2 实体关系说明
 
 | 关系                    | 类型   | 说明                           |
 | ----------------------- | ------ | ------------------------------ |
 | User → TalentInfo      | 一对多 | 一个用户可以管理多个人才信息   |
 | Condition → TalentInfo | 一对多 | 一个筛选条件可以应用于多个人才 |
 
-### 4.3 核心表结构
+### 6.3 核心表结构
 
-#### 4.3.1 User 表
+#### 6.3.1 User 表
 
 | 字段          | 类型         | 约束         | 说明                    |
 | ------------- | ------------ | ------------ | ----------------------- |
@@ -510,7 +631,7 @@ erDiagram
 - `uk_username`：用户名唯一索引
 - `idx_role`：角色索引，用于权限查询
 
-#### 4.3.2 TalentInfo 表
+#### 6.3.2 TalentInfo 表
 
 | 字段             | 类型         | 约束          | 说明                             |
 | ---------------- | ------------ | ------------- | -------------------------------- |
@@ -538,7 +659,7 @@ erDiagram
 - `idx_school`：院校索引，用于筛选
 - `idx_screening_status`：筛选状态索引，用于列表查询
 
-#### 4.3.3 Condition 表
+#### 6.3.3 Condition 表
 
 | 字段        | 类型         | 约束          | 说明            |
 | ----------- | ------------ | ------------- | --------------- |
@@ -565,9 +686,9 @@ erDiagram
 }
 ```
 
-## 5. 安全设计
+## 7. 安全设计
 
-### 5.1 认证授权流程
+### 7.1 认证授权流程
 
 ```mermaid
 sequenceDiagram
@@ -605,7 +726,7 @@ sequenceDiagram
     deactivate API
 ```
 
-### 5.2 数据加密
+### 7.2 数据加密
 
 | 加密类型   | 算法    | 用途             | 密钥管理     |
 | ---------- | ------- | ---------------- | ------------ |
@@ -614,7 +735,7 @@ sequenceDiagram
 | Token 签名 | HS256   | JWT 签名         | 环境变量配置 |
 | 传输加密   | TLS     | HTTPS 传输       | SSL 证书     |
 
-### 5.3 权限体系
+### 7.3 权限体系
 
 ```mermaid
 graph TB
@@ -645,9 +766,13 @@ graph TB
   
     C --> E
     C --> G
+    
+    style A fill:#d4edda,stroke:#90c695,stroke-width:1px
+    style B fill:#fff3cd,stroke:#e0c97f,stroke-width:1px
+    style C fill:#e8e8e8,stroke:#666,stroke-width:1px
 ```
 
-### 5.4 安全措施
+### 7.4 安全措施
 
 | 安全措施     | 说明              | 实现方式         |
 | ------------ | ----------------- | ---------------- |
@@ -659,9 +784,9 @@ graph TB
 | SQL 注入防护 | 参数化查询        | SQLAlchemy ORM   |
 | XSS 防护     | 输出转义          | 前端转义处理     |
 
-## 6. 性能优化
+## 8. 性能优化
 
-### 6.1 异步处理架构
+### 8.1 异步处理架构
 
 ```mermaid
 graph TB
@@ -679,9 +804,15 @@ graph TB
         E --> F[前端实时更新]
         F --> G[处理完成]
     end
+    
+    style A fill:#e8f4f8,stroke:#7fb3d5,stroke-width:1px
+    style B fill:#d4edda,stroke:#90c695,stroke-width:1px
+    style C fill:#fff3cd,stroke:#e0c97f,stroke-width:1px
+    style D fill:#e2d4f0,stroke:#c5a5d5,stroke-width:1px
+    style E fill:#fce4ec,stroke:#e8b4c8,stroke-width:1px
 ```
 
-### 6.2 缓存策略
+### 8.2 缓存策略
 
 ```mermaid
 graph TB
@@ -691,6 +822,11 @@ graph TB
     D -->|找到| E[写入Redis缓存<br/>设置过期时间]
     E --> F[返回结果]
     D -->|未找到| G[返回空结果<br/>缓存空值防穿透]
+    
+    style A fill:#e8f4f8,stroke:#7fb3d5,stroke-width:1px
+    style B fill:#fff3cd,stroke:#e0c97f,stroke-width:1px
+    style C fill:#d4edda,stroke:#90c695,stroke-width:1px
+    style D fill:#e2d4f0,stroke:#c5a5d5,stroke-width:1px
 ```
 
 **缓存配置**：
@@ -702,7 +838,7 @@ graph TB
 | 用户信息 | Token 有效期 | 与 JWT 同步    |
 | 空值缓存 | 30 秒        | 防止缓存穿透   |
 
-### 6.3 数据库优化
+### 8.3 数据库优化
 
 | 优化措施   | 说明                   |
 | ---------- | ---------------------- |
@@ -711,9 +847,9 @@ graph TB
 | 批量操作   | 批量插入、批量查询     |
 | 慢查询监控 | 开启慢查询日志         |
 
-## 7. 监控与日志
+## 9. 监控与日志
 
-### 7.1 日志系统
+### 9.1 日志系统
 
 系统使用 Loguru 进行结构化日志记录：
 
@@ -725,7 +861,7 @@ graph TB
 | 保留时间 | 30 天    | 保留最近 30 天日志   |
 | 异常追踪 | 完整堆栈 | 记录完整异常信息     |
 
-### 7.2 健康检查
+### 9.2 健康检查
 
 ```mermaid
 graph LR
@@ -739,11 +875,11 @@ graph LR
     OSS -->|OK| Status
     Vec -->|OK| Status
     
-    style Check fill:#2563eb,color:#fff
-    style Status fill:#d1fae5,stroke:#10b981
+    style Check fill:#e8f4f8,stroke:#7fb3d5,stroke-width:1px
+    style Status fill:#d4edda,stroke:#90c695,stroke-width:1px
 ```
 
-### 7.3 监控指标
+### 9.3 监控指标
 
 | 指标类型 | 指标名称     | 说明             |
 | -------- | ------------ | ---------------- |

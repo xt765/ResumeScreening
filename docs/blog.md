@@ -28,7 +28,7 @@
 
 > 作者：玄同765 (xt765)
 > 
-> 项目地址：[GitHub - ResumeScreening](https://github.com/xt765/resume-screening)
+> 项目地址：[GitHub - ResumeScreening](https://github.com/xt765/ResumeScreening)
 > 
 > 国内镜像：[Gitee - ResumeScreening](https://gitee.com/xt765/resume-screening)
 
@@ -40,7 +40,8 @@
 
 - **如何让简历处理效率提升 60 倍？** — 通过 LangGraph 状态机工作流
 - **如何让筛选标准统一可控？** — 通过 LLM 语义理解 + 复杂布尔逻辑
-- **如何让简历库智能问答？** — 通过 RAG 检索增强生成技术
+- **如何让简历库智能问答？** — 通过 Agentic RAG 检索增强生成技术
+- **如何实现检索结果更精准？** — 通过加权 RRF 混合检索算法
 - **如何实现零依赖极速部署？** — 通过 Local Fallback 本地回退机制
 
 本文将深入剖析系统的架构设计，带你了解一个生产级简历筛选系统的诞生过程。
@@ -74,7 +75,12 @@ graph LR
         A2 -->|淘汰| A4[丢弃]
         A3 --> A5[人工检索查找]
     end
-    style Legacy fill:#f9fafb,stroke:#e5e7eb
+    style Legacy fill:#f8f9fa,stroke:#dee2e6
+    style A1 fill:#fff3cd,stroke:#e0c97f
+    style A2 fill:#f8d7da,stroke:#e8b4b8
+    style A3 fill:#fff3cd,stroke:#e0c97f
+    style A4 fill:#f8d7da,stroke:#e8b4b8
+    style A5 fill:#fff3cd,stroke:#e0c97f
 ```
 ```mermaid
 graph LR
@@ -84,11 +90,11 @@ graph LR
         B2 -->|自动结构化| B3[多维数据库]
         B3 --> B4[自然语言问答]
     end
-    style System fill:#ecfdf5,stroke:#a7f3d0
-    style B1 fill:#d1fae5,stroke:#34d399
-    style B2 fill:#d1fae5,stroke:#34d399
-    style B3 fill:#d1fae5,stroke:#34d399
-    style B4 fill:#d1fae5,stroke:#34d399
+    style System fill:#e8f4f8,stroke:#7fb3d5
+    style B1 fill:#d4edda,stroke:#90c695
+    style B2 fill:#fff3cd,stroke:#e0c97f
+    style B3 fill:#e2d4f0,stroke:#b8a9d0
+    style B4 fill:#fce4ec,stroke:#f0b8c4
 ```
 
 
@@ -109,7 +115,7 @@ graph LR
 |----------|----------|-----------------|
 | 信息提取 | 规则/正则 | 语义理解，自动提取 20+ 字段 |
 | 筛选判断 | 关键词匹配 | 自然语言条件，语义匹配 |
-| 数据检索 | SQL 查询 | RAG 智能问答 |
+| 数据检索 | SQL 查询 | Agentic RAG 智能问答 |
 | 可扩展性 | 需修改代码 | 配置化，零代码扩展 |
 | 处理速度 | 依赖人工 | 3-5 秒/份，效率提升 60 倍 |
 
@@ -160,12 +166,12 @@ graph TD
     Service <--> AI_Core
     Service <--> Data
 
-    style User fill:#2563eb,color:#fff
-    style Frontend fill:#dbeafe
-    style Gateway fill:#f3f4f6
-    style Service fill:#d1fae5
-    style AI_Core fill:#fae8ff
-    style Data fill:#ffedd5
+    style User fill:#e8f4f8,stroke:#7fb3d5
+    style Frontend fill:#d4edda,stroke:#90c695
+    style Gateway fill:#fff3cd,stroke:#e0c97f
+    style Service fill:#e2d4f0,stroke:#b8a9d0
+    style AI_Core fill:#fce4ec,stroke:#f0b8c4
+    style Data fill:#e8f4f8,stroke:#7fb3d5
 ```
 
 **架构设计理念**：
@@ -232,13 +238,13 @@ graph TD
     RAG --> Chroma
     RAG --> Embedding
     
-    style User fill:#2563eb,color:#fff
-    style Nginx fill:#64748b,color:#fff
-    style App_Layer fill:#e0f2fe
-    style Workflow_Layer fill:#dcfce7
-    style AI_Layer fill:#f3e8ff
-    style Data_Layer fill:#ffedd5
-    style Nodes fill:#fff,stroke:#dcfce7
+    style User fill:#e8f4f8,stroke:#7fb3d5
+    style Nginx fill:#d4edda,stroke:#90c695
+    style App_Layer fill:#fff3cd,stroke:#e0c97f
+    style Workflow_Layer fill:#e2d4f0,stroke:#b8a9d0
+    style AI_Layer fill:#fce4ec,stroke:#f0b8c4
+    style Data_Layer fill:#e8f4f8,stroke:#7fb3d5
+    style Nodes fill:#fff,stroke:#e2d4f0
 ```
 
 **各层职责说明**：
@@ -330,12 +336,12 @@ graph TD
 
     Notify --> End([流程结束])
 
-    style Start fill:#2563eb,color:#fff
-    style End fill:#2563eb,color:#fff
-    style P1 fill:#eff6ff,stroke:#bfdbfe
-    style P2 fill:#f0fdf4,stroke:#bbf7d0
-    style P3 fill:#fff7ed,stroke:#fed7aa
-    style P4 fill:#faf5ff,stroke:#e9d5ff
+    style Start fill:#e8f4f8,stroke:#7fb3d5
+    style End fill:#e8f4f8,stroke:#7fb3d5
+    style P1 fill:#e8f4f8,stroke:#7fb3d5
+    style P2 fill:#d4edda,stroke:#90c695
+    style P3 fill:#fff3cd,stroke:#e0c97f
+    style P4 fill:#e2d4f0,stroke:#b8a9d0
 ```
 
 **各节点详细说明**：
@@ -433,90 +439,261 @@ stateDiagram-v2
 
 ---
 
-## 四、RAG 智能问答设计
+## 四、Agentic RAG 智能问答设计
 
-### 4.1 为什么需要 RAG？
+### 4.1 为什么选择 Agentic RAG？
 
-简历库的价值不仅在于存储，更在于智能检索和分析。传统 SQL 查询存在明显局限：
+传统 RAG（检索增强生成）在复杂查询场景下存在明显局限性，本系统采用 **Agentic RAG** 架构，通过引入 Agent 代理机制，实现更智能的检索和问答能力。
 
-| 查询类型 | SQL 查询 | RAG 智能问答 |
-|----------|----------|--------------|
-| "有哪些5年以上经验的Java开发？" | 需要编写复杂 JOIN | 自然语言直接提问 |
-| "本科学历占比多少？" | 需要编写聚合查询 | 自动统计并生成图表 |
-| "张三和李四谁更合适？" | 无法回答 | 对比分析并给出建议 |
+```mermaid
+graph TD
+    subgraph Traditional [传统 RAG 局限性]
+        T1[单一检索路径] --> T2[无法处理复杂查询]
+        T2 --> T3[缺乏自我纠错能力]
+        T3 --> T4[结果不可控]
+    end
+    
+    style Traditional fill:#f8d7da,stroke:#e8b4b8
+    style T1 fill:#fff3cd,stroke:#e0c97f
+    style T2 fill:#fff3cd,stroke:#e0c97f
+    style T3 fill:#fff3cd,stroke:#e0c97f
+    style T4 fill:#fff3cd,stroke:#e0c97f
+```
 
-### 4.2 RAG 智能问答流程
+```mermaid
+graph TD
+    subgraph Agentic [Agentic RAG 优势]
+        A1[动态检索策略] --> A2[多步推理能力]
+        A2 --> A3[工具调用与自我纠错]
+        A3 --> A4[结果质量可控]
+    end
+    
+    style Agentic fill:#d4edda,stroke:#90c695
+    style A1 fill:#e8f4f8,stroke:#7fb3d5
+    style A2 fill:#e8f4f8,stroke:#7fb3d5
+    style A3 fill:#e8f4f8,stroke:#7fb3d5
+    style A4 fill:#e8f4f8,stroke:#7fb3d5
+```
+
+**传统 RAG vs Agentic RAG 对比**：
+
+| 能力维度 | 传统 RAG | Agentic RAG | 优势说明 |
+|----------|----------|-------------|----------|
+| 检索策略 | 固定向量检索 | 动态选择检索方式 | 根据问题类型智能选择最佳检索策略 |
+| 查询理解 | 单次编码 | 多轮迭代理解 | 复杂问题可分解为多个子问题逐步解决 |
+| 错误处理 | 无纠错机制 | 自我反思与纠错 | 检索结果不满意时可自动调整策略 |
+| 工具调用 | 仅检索 | 多工具协同 | 可调用统计、筛选、推荐等多种工具 |
+| 结果质量 | 依赖检索质量 | Agent 质量把控 | Agent 可评估结果并优化回答 |
+
+### 4.2 Agentic RAG 架构设计
+
+```mermaid
+flowchart TD
+    START([用户提问]) --> Agent[Agent 推理节点]
+    
+    Agent --> Decision{需要调用工具?}
+    
+    Decision -->|需要检索| VectorSearch[向量检索工具]
+    Decision -->|需要统计| Stats[统计分析工具]
+    Decision -->|需要筛选| Filter[条件筛选工具]
+    Decision -->|无需工具| Generate[直接生成回答]
+    
+    VectorSearch --> Agent
+    Stats --> Agent
+    Filter --> Agent
+    
+    Agent --> QualityCheck{结果质量检查}
+    QualityCheck -->|不满意| Decision
+    QualityCheck -->|满意| END([返回回答])
+    
+    style START fill:#e8f4f8,stroke:#7fb3d5
+    style END fill:#e8f4f8,stroke:#7fb3d5
+    style Agent fill:#d4edda,stroke:#90c695
+    style Decision fill:#fff3cd,stroke:#e0c97f
+    style QualityCheck fill:#fff3cd,stroke:#e0c97f
+    style VectorSearch fill:#e2d4f0,stroke:#b8a9d0
+    style Stats fill:#e2d4f0,stroke:#b8a9d0
+    style Filter fill:#e2d4f0,stroke:#b8a9d0
+    style Generate fill:#fce4ec,stroke:#f0b8c4
+```
+
+**核心组件说明**：
+
+| 组件 | 职责 | 实现方式 |
+|------|------|----------|
+| **Agent 推理节点** | 理解用户意图，决策调用哪些工具 | DeepSeek LLM + Function Calling |
+| **向量检索工具** | 语义相似度检索，召回相关简历 | ChromaDB + DashScope Embedding |
+| **统计分析工具** | 执行 SQL 聚合查询，统计数据 | MySQL + SQLAlchemy |
+| **条件筛选工具** | 根据条件过滤候选人 | 结构化查询 + LLM 条件解析 |
+| **质量检查** | 评估回答质量，决定是否重试 | LLM Self-Evaluation |
+
+### 4.3 Agentic RAG 工作流程示例
+
+以"有哪些5年以上经验的Java开发？平均薪资是多少？"为例：
 
 ```mermaid
 sequenceDiagram
     participant User as 用户
-    participant API as API 服务
-    participant Embed as Embedding 服务
-    participant DB as 向量数据库 (Chroma)
-    participant LLM as 大语言模型 (DeepSeek)
+    participant Agent as Agent 推理
+    participant Vector as 向量检索
+    participant Stats as 统计工具
+    participant LLM as 大模型
     
-    User->>API: 提问: "有哪些5年经验的Java开发?"
-    activate API
+    User->>Agent: 提问：有哪些5年以上经验的Java开发？平均薪资是多少？
     
-    API->>Embed: 问题向量化
-    activate Embed
-    Embed-->>API: 返回查询向量
-    deactivate Embed
+    Agent->>Agent: 分析问题：需要检索+统计
     
-    API->>DB: 相似度检索 (Top-K)
-    activate DB
-    DB-->>API: 返回相关简历片段
-    deactivate DB
+    Agent->>Vector: 调用向量检索工具
+    Vector-->>Agent: 返回相关简历列表
     
-    API->>LLM: 发送 Prompt + 简历上下文
-    activate LLM
-    LLM-->>API: 生成自然语言回答 + 智能推荐指数
-    deactivate LLM
+    Agent->>Stats: 调用统计工具计算平均薪资
+    Stats-->>Agent: 返回统计结果
     
-    API-->>User: 返回回答、推荐理由及来源链接
-    deactivate API
+    Agent->>LLM: 组装上下文生成回答
+    LLM-->>Agent: 生成自然语言回答
+    
+    Agent->>Agent: 质量检查：回答是否完整？
+    
+    Agent-->>User: 返回完整回答 + 来源链接
 ```
 
-**RAG 技术优势**：
+**典型应用场景**：
 
-| 传统检索 | RAG 检索 |
-|----------|----------|
-| 关键词匹配，无法理解语义 | 向量检索，理解问题意图 |
-| 需要精确匹配字段 | 支持自然语言提问 |
-| 结果是原始数据 | 结果是生成的自然语言回答 |
-| 无法进行推理总结 | 可以总结、对比、推荐 |
-
-### 4.3 RAG 检索增强生成流程
-
-```mermaid
-graph LR
-    Input[用户问题] --> Embed[向量化]
-    Embed --> Search[ChromaDB 检索]
-    Search --> Context[构建上下文]
-    Context --> Prompt[Prompt 工程]
-    Prompt --> LLM[DeepSeek 推理]
-    LLM --> Answer[智能回答+评分]
-    
-    style Input fill:#eff6ff
-    style Embed fill:#e0f2fe
-    style Search fill:#bae6fd
-    style Context fill:#7dd3fc
-    style Prompt fill:#38bdf8
-    style LLM fill:#0ea5e9
-    style Answer fill:#0284c7,color:#fff
-```
-
-**技术优势**：
-- **语义检索**：向量相似度检索，理解问题意图而非关键词匹配
-- **来源可追溯**：回答附带来源简历链接，可信度高
-- **上下文管理**：支持多轮对话，上下文自动管理
-- **实时更新**：新简历入库后立即可检索
+1. **人才查询**："有哪些 5 年以上经验的 Java 开发工程师？"
+2. **统计分析**："本科学历的候选人占比多少？平均工作年限是多少？"
+3. **技能推荐**："这个岗位还需要什么技能？哪些候选人最匹配？"
+4. **对比分析**："张三和李四谁的 Java 经验更丰富？"
 
 ---
 
-## 五、数据模型设计
+## 五、加权 RRF 混合检索设计
 
-### 5.1 ER 图
+### 5.1 为什么选择加权 RRF？
+
+在简历检索场景中，单一的检索方式难以满足所有需求：
+
+```mermaid
+graph LR
+    subgraph Single [单一检索方式的局限]
+        V1[向量检索] --> V2[语义理解强<br/>但精确匹配弱]
+        K1[关键词检索] --> K2[精确匹配强<br/>但语义理解弱]
+    end
+    
+    style Single fill:#f8d7da,stroke:#e8b4b8
+    style V1 fill:#fff3cd,stroke:#e0c97f
+    style V2 fill:#fff3cd,stroke:#e0c97f
+    style K1 fill:#fff3cd,stroke:#e0c97f
+    style K2 fill:#fff3cd,stroke:#e0c97f
+```
+
+```mermaid
+graph LR
+    subgraph Hybrid [加权 RRF 混合检索优势]
+        H1[向量检索 0.7权重] --> H3[语义+精确<br/>双重保障]
+        H2[BM25检索 0.3权重] --> H3
+    end
+    
+    style Hybrid fill:#d4edda,stroke:#90c695
+    style H1 fill:#e8f4f8,stroke:#7fb3d5
+    style H2 fill:#e8f4f8,stroke:#7fb3d5
+    style H3 fill:#fce4ec,stroke:#f0b8c4
+```
+
+**加权 RRF 的核心优势**：
+
+| 优势 | 说明 | 业务价值 |
+|------|------|----------|
+| **互补性** | 向量检索擅长语义匹配，BM25 擅长关键词匹配 | 覆盖更多检索场景 |
+| **可调权重** | 根据业务需求调整两种检索的权重 | 灵活适配不同场景 |
+| **排序融合** | RRF 算法有效融合多个排序列表 | 综合排序更准确 |
+| **无需训练** | 不需要额外的机器学习训练 | 部署简单，维护成本低 |
+
+### 5.2 RRF 算法原理
+
+**Reciprocal Rank Fusion (RRF)** 是一种简单而有效的排序融合算法：
+
+```
+RRF_score(d) = Σ (weight_i / (rank_i(d) + k))
+```
+
+其中：
+- `d`：待排序的文档（简历）
+- `rank_i(d)`：文档 d 在第 i 个检索结果中的排名
+- `weight_i`：第 i 个检索方式的权重
+- `k`：平滑常数（通常设为 60）
+
+```mermaid
+flowchart TD
+    Query[用户查询] --> Vector[向量检索<br/>权重 0.7]
+    Query --> BM25[BM25 检索<br/>权重 0.3]
+    
+    Vector --> R1[排序结果 A]
+    BM25 --> R2[排序结果 B]
+    
+    R1 --> RRF[RRF 融合算法]
+    R2 --> RRF
+    
+    RRF --> Final[最终排序结果]
+    
+    style Query fill:#e8f4f8,stroke:#7fb3d5
+    style Vector fill:#d4edda,stroke:#90c695
+    style BM25 fill:#d4edda,stroke:#90c695
+    style R1 fill:#fff3cd,stroke:#e0c97f
+    style R2 fill:#fff3cd,stroke:#e0c97f
+    style RRF fill:#e2d4f0,stroke:#b8a9d0
+    style Final fill:#fce4ec,stroke:#f0b8c4
+```
+
+### 5.3 权重设置说明
+
+本系统采用 **向量检索 0.7 + BM25 检索 0.3** 的权重配置：
+
+| 检索方式 | 权重 | 选择理由 |
+|----------|------|----------|
+| **向量检索** | 0.7 | 简历问答场景中，语义理解更为重要。用户提问往往是自然语言，如"有大数据经验的候选人"，向量检索能更好理解意图 |
+| **BM25 检索** | 0.3 | 保留精确关键词匹配能力，确保技术名词、公司名称等关键词不被遗漏 |
+
+**权重调优建议**：
+
+- 如果用户查询多为精确关键词（如"阿里巴巴 Java"），可提高 BM25 权重
+- 如果用户查询多为自然语言描述（如"有分布式系统设计经验的候选人"），可提高向量检索权重
+
+### 5.4 混合检索流程
+
+```mermaid
+graph TD
+    Query[用户查询] --> Vector[向量检索<br/>语义匹配]
+    Query --> BM25[BM25 检索<br/>关键词匹配]
+    
+    Vector --> Score1[计算向量相似度]
+    BM25 --> Score2[计算 BM25 分数]
+    
+    Score1 --> Rank1[排序得到排名]
+    Score2 --> Rank2[排序得到排名]
+    
+    Rank1 --> RRF[RRF 融合<br/>权重: 0.7 + 0.3]
+    Rank2 --> RRF
+    
+    RRF --> Final[最终排序结果]
+    
+    style Query fill:#e8f4f8,stroke:#7fb3d5
+    style Vector fill:#d4edda,stroke:#90c695
+    style BM25 fill:#d4edda,stroke:#90c695
+    style RRF fill:#fff3cd,stroke:#e0c97f
+    style Final fill:#fce4ec,stroke:#f0b8c4
+```
+
+**技术优势**：
+- **语义+精确双重保障**：向量检索理解语义，BM25 保证精确匹配
+- **可调权重**：根据业务场景灵活调整权重配置
+- **无需训练**：RRF 算法简单有效，无需额外训练
+- **排序融合**：综合多种检索结果，排序更准确
+
+---
+
+## 六、数据模型设计
+
+### 6.1 ER 图
 
 系统采用关系数据库存储结构化数据：
 
@@ -558,9 +735,9 @@ erDiagram
 
 ---
 
-## 六、性能优化
+## 七、性能优化
 
-### 6.1 性能指标
+### 7.1 性能指标
 
 系统经过优化，各项性能指标表现优异：
 
@@ -573,11 +750,11 @@ graph TD
         D["系统可用性<br/><b>99.9%</b>"]
     end
     
-    style Performance fill:#f8fafc,stroke:#e2e8f0
-    style A fill:#dbeafe,stroke:#3b82f6
-    style B fill:#d1fae5,stroke:#10b981
-    style C fill:#fae8ff,stroke:#a855f7
-    style D fill:#ffedd5,stroke:#f97316
+    style Performance fill:#f8f9fa,stroke:#e2e8f0
+    style A fill:#e8f4f8,stroke:#7fb3d5
+    style B fill:#d4edda,stroke:#90c695
+    style C fill:#e2d4f0,stroke:#b8a9d0
+    style D fill:#fce4ec,stroke:#f0b8c4
 ```
 
 | 指标 | 数值 | 说明 | 对比传统方式 |
@@ -588,7 +765,7 @@ graph TD
 | 系统可用性 | 99.9% | Docker 容器化部署，自动重启 | - |
 | 并发处理能力 | 100+ QPS | 异步架构，充分利用 CPU | - |
 
-### 6.2 多级缓存策略
+### 7.2 多级缓存策略
 
 系统采用多级缓存提升性能：
 
@@ -605,10 +782,11 @@ graph TD
     DB -->|查询为空| NullCache["写入空值缓存<br/>(防穿透)"]
     NullCache --> Return
     
-    style Req fill:#2563eb,color:#fff
-    style Cache fill:#fef3c7,stroke:#f59e0b
-    style DB fill:#dbeafe,stroke:#3b82f6
-    style Return fill:#d1fae5,stroke:#10b981
+    style Req fill:#e8f4f8,stroke:#7fb3d5
+    style Cache fill:#fff3cd,stroke:#e0c97f
+    style DB fill:#e2d4f0,stroke:#b8a9d0
+    style Return fill:#d4edda,stroke:#90c695
+    style NullCache fill:#fce4ec,stroke:#f0b8c4
 ```
 
 **缓存策略**：
@@ -619,9 +797,9 @@ graph TD
 
 ---
 
-## 七、安全设计
+## 八、安全设计
 
-### 7.1 多层安全防护
+### 8.1 多层安全防护
 
 在处理简历这种敏感数据时，安全性至关重要：
 
@@ -636,15 +814,15 @@ graph TD
 
 ---
 
-## 八、快速开始
+## 九、快速开始
 
-### 8.1 环境要求
+### 9.1 环境要求
 
 - Python 3.13+
 - Docker 24.0+
 - Docker Compose 2.20+
 
-### 8.2 三步启动
+### 9.2 三步启动
 
 ```bash
 # 第一步：克隆项目
@@ -659,7 +837,7 @@ cp .env.example .env
 docker-compose up -d
 ```
 
-### 8.3 访问系统
+### 9.3 访问系统
 
 | 服务 | 地址 |
 |------|------|
@@ -667,7 +845,7 @@ docker-compose up -d
 | API 文档 | http://localhost:8000/docs |
 | MinIO 控制台 | http://localhost:9001 |
 
-### 8.4 纯本地开发 (Local Fallback)
+### 9.4 纯本地开发 (Local Fallback)
 
 无需安装 Docker，直接使用本地环境运行：
 
@@ -682,19 +860,20 @@ uv run uvicorn src.api.main:app --reload
 
 ---
 
-## 九、总结与展望
+## 十、总结与展望
 
-### 9.1 项目亮点
+### 10.1 项目亮点
 
 本项目通过 LangChain + LangGraph + FastAPI 的组合，实现了：
 
 - **效率提升 60 倍**：从 3-5 分钟缩短到 3-5 秒
 - **标准统一可控**：LLM 语义理解，支持复杂布尔逻辑
-- **智能问答检索**：RAG 技术，秒级响应
+- **智能问答检索**：Agentic RAG 技术，秒级响应
+- **检索结果精准**：加权 RRF 混合检索，语义+精确双重保障
 - **生产级稳定**：Docker 容器化，99.9% 可用性
 - **开发极简**：Local Fallback 机制，零依赖启动
 
-### 9.2 未来规划
+### 10.2 未来规划
 
 - [ ] 支持更多简历格式（图片 OCR）
 - [ ] 多租户架构
