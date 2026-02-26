@@ -247,13 +247,6 @@ const AnalysisPage = {
                                 </svg>
                                 候选人列表
                             </h3>
-                            <div class="sort-controls">
-                                <label class="form-label">排序方式：</label>
-                                <select class="form-control sort-select" id="sortSelect">
-                                    <option value="work_years">经验优先</option>
-                                    <option value="education">学历优先</option>
-                                </select>
-                            </div>
                         </div>
                         <div class="card-body">
                             <div class="candidates-list" id="candidatesList"></div>
@@ -280,11 +273,6 @@ const AnalysisPage = {
                     this.executeQuery();
                 }
             });
-        }
-
-        const sortSelect = document.getElementById('sortSelect');
-        if (sortSelect) {
-            sortSelect.addEventListener('change', () => this.sortCandidates());
         }
 
         const cancelAnalysisBtn = document.getElementById('cancelAnalysisBtn');
@@ -616,22 +604,72 @@ const AnalysisPage = {
                 gfm: true,
             });
             let html = marked.parse(answer);
-            html = html.replace(/\[候选人(\d+)\]/g, '<span class="candidate-ref">[候选人$1]</span>');
+            html = html.replace(/<strong>([^\s【】]+)\s+(智能推荐指数[：:]\s*\d+[^<]*)<\/strong>/g, 
+                '<strong><span class="candidate-name-highlight" onclick="AnalysisPage.scrollToCandidateByName(\'$1\')">$1</span> $2</strong>');
             container.innerHTML = html;
         } else {
             let formatted = answer
                 .replace(/###\s*(.+)/g, '<h5 class="conclusion-section">$1</h5>')
                 .replace(/##\s*(.+)/g, '<h4 class="conclusion-heading">$1</h4>')
                 .replace(/#\s*(.+)/g, '<h3 class="conclusion-title">$1</h3>')
+                .replace(/\*\*([^\s【】]+)\s+(智能推荐指数[：:]\s*\d+[^\*]*)\*\*/g, 
+                    '<strong><span class="candidate-name-highlight" onclick="AnalysisPage.scrollToCandidateByName(\'$1\')">$1</span> $2</strong>')
                 .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
                 .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
                 .replace(/^- (.+)$/gm, '<li>$1</li>')
                 .replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>')
                 .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
                 .replace(/\n\n/g, '</p><p>')
-                .replace(/\n/g, '<br>')
-                .replace(/\[候选人(\d+)\]/g, '<span class="candidate-ref">[候选人$1]</span>');
+                .replace(/\n/g, '<br>');
             container.innerHTML = `<p>${formatted}</p>`;
+        }
+    },
+
+    /**
+     * 滚动到指定候选人卡片并高亮
+     * @param {number} index - 候选人索引（从1开始）
+     */
+    scrollToCandidate(index) {
+        const candidateCards = document.querySelectorAll('.candidate-card');
+        const targetCard = candidateCards[index - 1];
+        
+        if (targetCard) {
+            candidateCards.forEach(card => card.classList.remove('highlight'));
+            
+            targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            targetCard.classList.add('highlight');
+            
+            setTimeout(() => {
+                targetCard.classList.remove('highlight');
+            }, 3000);
+        }
+    },
+
+    /**
+     * 根据姓名滚动到候选人卡片并高亮
+     * @param {string} name - 候选人姓名
+     */
+    scrollToCandidateByName(name) {
+        if (!name) return;
+        
+        const candidateCards = document.querySelectorAll('.candidate-card');
+        
+        for (const card of candidateCards) {
+            const nameElement = card.querySelector('.candidate-name');
+            if (nameElement && nameElement.textContent.includes(name)) {
+                candidateCards.forEach(c => c.classList.remove('highlight'));
+                
+                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                card.classList.add('highlight');
+                
+                setTimeout(() => {
+                    card.classList.remove('highlight');
+                }, 3000);
+                
+                break;
+            }
         }
     },
 
@@ -988,15 +1026,49 @@ const AnalysisPage = {
             return;
         }
 
-        container.innerHTML = sources.map((source, index) => {
+        const answer = this.queryResults?.answer || '';
+        const scores = this.parseAllRecommendationScores(answer);
+        
+        const sortedSources = [...sources].sort((a, b) => {
+            const nameA = a.metadata?.name || '';
+            const nameB = b.metadata?.name || '';
+            const scoreA = scores[nameA] || 0;
+            const scoreB = scores[nameB] || 0;
+            
+            if (scoreA !== scoreB) {
+                return scoreB - scoreA;
+            }
+            
+            if (a.similarity_score !== undefined && b.similarity_score !== undefined) {
+                return b.similarity_score - a.similarity_score;
+            }
+            
+            return 0;
+        });
+
+        container.innerHTML = sortedSources.map((source, index) => {
             const metadata = source.metadata || {};
+            const candidateIndex = index + 1;
+            const name = metadata.name || '';
+            
+            let recommendationScore = scores[name] || null;
+            
+            if (recommendationScore === null && source.similarity_score !== undefined) {
+                recommendationScore = Math.round(source.similarity_score * 100);
+            }
+            
+            let scoreHtml = '';
+            if (recommendationScore !== null) {
+                const scoreClass = this.getScoreClass(recommendationScore);
+                scoreHtml = this.renderScoreCircle(recommendationScore, scoreClass);
+            }
 
             return `
                 <div class="candidate-card" data-id="${source.id}">
-                    <div class="candidate-rank">${index + 1}</div>
+                    <div class="candidate-rank">${candidateIndex}</div>
                     <div class="candidate-info">
                         <div class="candidate-header">
-                            <span class="candidate-name">${this.escapeHtml(metadata.name || '未知')}</span>
+                            <span class="candidate-name">${this.escapeHtml(name || '未知')}</span>
                             <span class="candidate-education" style="color: ${this.educationColors[this.getEducationLabel(metadata.education_level)] || '#374151'}">
                                 ${this.getEducationLabel(metadata.education_level) || '-'}
                             </span>
@@ -1024,6 +1096,7 @@ const AnalysisPage = {
                             return '';
                         })()}
                     </div>
+                    ${scoreHtml}
                     <div class="candidate-actions">
                         <button class="btn btn-sm btn-outline" onclick="AnalysisPage.viewTalentDetail('${source.id}')">
                             查看详情
@@ -1035,34 +1108,60 @@ const AnalysisPage = {
     },
 
     /**
-     * 排序候选人
+     * 从 LLM 回答中解析所有候选人的推荐指数
+     * @param {string} answer - LLM 回答
+     * @returns {Object} 姓名到评分的映射 { name: score }
      */
-    sortCandidates() {
-        if (!this.queryResults || !this.queryResults.sources) return;
-
-        const sortSelect = document.getElementById('sortSelect');
-        const sortBy = sortSelect?.value || 'work_years';
-
-        const sources = [...this.queryResults.sources];
-
-        sources.sort((a, b) => {
-            const metaA = a.metadata || {};
-            const metaB = b.metadata || {};
-
-            switch (sortBy) {
-                case 'work_years': {
-                    return (metaB.work_years || 0) - (metaA.work_years || 0);
+    parseAllRecommendationScores(answer) {
+        if (!answer) return {};
+        
+        const scores = {};
+        const patterns = [
+            /\*\*([^\s【】*]+)\s+智能推荐指数[：:]\s*(\d+)/g,
+            /([^\s【】*]+)\s+智能推荐指数[：:]\s*(\d+)/g,
+            /\*\*([^\s【】*]+)智能推荐指数[：:]\s*(\d+)/g,
+            /([^\s【】*]+)智能推荐指数[：:]\s*(\d+)/g
+        ];
+        
+        for (const pattern of patterns) {
+            let match;
+            while ((match = pattern.exec(answer)) !== null) {
+                const name = match[1].trim();
+                const score = parseInt(match[2], 10);
+                if (name && score && !scores[name]) {
+                    scores[name] = score;
                 }
-                case 'education': {
-                    const eduOrder = { 'doctor': 5, 'master': 4, 'bachelor': 3, 'college': 2, 'high_school': 1 };
-                    return (eduOrder[metaB.education_level] || 0) - (eduOrder[metaA.education_level] || 0);
-                }
-                default:
-                    return 0;
             }
-        });
+        }
+        
+        return scores;
+    },
 
-        this.renderCandidates(sources);
+    /**
+     * 从 LLM 回答中解析候选人的推荐指数（旧方法，保留兼容）
+     * @param {string} answer - LLM 回答
+     * @param {number} candidateIndex - 候选人索引（从1开始）
+     * @returns {number|null} 推荐指数
+     * @deprecated 使用 parseAllRecommendationScores 代替
+     */
+    parseRecommendationScore(answer, candidateIndex) {
+        if (!answer) return null;
+        
+        const pattern = new RegExp(`【候选人${candidateIndex}】[^】]*智能推荐指数[：:]\\s*(\\d+)`, 'i');
+        const match = answer.match(pattern);
+        
+        if (match) {
+            return parseInt(match[1], 10);
+        }
+        
+        const altPattern = new RegExp(`候选人${candidateIndex}[^\\d]*(\\d+)\\s*分`, 'i');
+        const altMatch = answer.match(altPattern);
+        
+        if (altMatch) {
+            return parseInt(altMatch[1], 10);
+        }
+        
+        return null;
     },
 
     /**
@@ -1074,6 +1173,43 @@ const AnalysisPage = {
         if (similarity >= 0.8) return 'high';
         if (similarity >= 0.6) return 'medium';
         return 'low';
+    },
+
+    /**
+     * 获取推荐指数样式类
+     * @param {number} score - 推荐指数
+     * @returns {string} 样式类名
+     */
+    getScoreClass(score) {
+        if (score >= 80) return 'high';
+        if (score >= 60) return 'medium';
+        return 'low';
+    },
+
+    /**
+     * 渲染推荐指数圆形进度条
+     * @param {number} score - 推荐指数
+     * @param {string} scoreClass - 样式类名
+     * @returns {string} HTML字符串
+     */
+    renderScoreCircle(score, scoreClass) {
+        const circumference = 2 * Math.PI * 24;
+        const offset = circumference - (score / 100) * circumference;
+        
+        return `
+            <div class="candidate-score ${scoreClass}">
+                <div class="score-circle">
+                    <svg class="circular-chart" viewBox="0 0 56 56">
+                        <circle class="circle-bg" cx="28" cy="28" r="24"/>
+                        <circle class="circle" cx="28" cy="28" r="24"
+                            stroke-dasharray="${circumference}"
+                            stroke-dashoffset="${offset}"/>
+                    </svg>
+                    <span class="score-text">${score}</span>
+                </div>
+                <span class="score-label">推荐指数</span>
+            </div>
+        `;
     },
 
     /**
@@ -1516,13 +1652,65 @@ if (!document.getElementById('analysis-styles')) {
         color: var(--text-secondary);
     }
 
-    .analysis-page .candidate-ref {
-        background: #dbeafe;
+    .analysis-page .candidate-name-highlight {
+        font-weight: 600;
         color: #1e40af;
-        padding: 2px 6px;
-        border-radius: 4px;
-        font-size: 12px;
-        font-weight: 500;
+        border-bottom: 2px solid #3b82f6;
+        padding-bottom: 1px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .analysis-page .candidate-name-highlight:hover {
+        color: #1d4ed8;
+        border-bottom-color: #1d4ed8;
+        background-color: rgba(59, 130, 246, 0.1);
+    }
+
+    .analysis-page .candidate-ref {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 18px;
+        height: 18px;
+        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        color: #fff;
+        padding: 0 4px;
+        border-radius: 9px;
+        font-size: 11px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 1px 2px rgba(59, 130, 246, 0.3);
+        text-decoration: none;
+        vertical-align: middle;
+        margin: 0 1px;
+        line-height: 1;
+    }
+
+    .analysis-page .candidate-ref:hover {
+        background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+        box-shadow: 0 2px 4px rgba(59, 130, 246, 0.4);
+        transform: scale(1.1);
+    }
+
+    .analysis-page .candidate-ref:active {
+        transform: scale(1);
+    }
+
+    .analysis-page .candidate-card.highlight {
+        animation: highlight-pulse 0.5s ease-in-out 3;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    }
+
+    @keyframes highlight-pulse {
+        0%, 100% {
+            background: #fff;
+        }
+        50% {
+            background: #eff6ff;
+        }
     }
 
     .analysis-page .analytics-dashboard {

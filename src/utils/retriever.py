@@ -177,9 +177,12 @@ class HybridRetriever:
 
             for i, doc_id in enumerate(ids):
                 if contents and i < len(contents) and contents[i]:
+                    metadata = metadatas[i] if metadatas and i < len(metadatas) else {}
+                    if metadata.get("is_deleted", False):
+                        continue
                     doc = Document(
                         page_content=contents[i],
-                        metadata=metadatas[i] if metadatas and i < len(metadatas) else {},
+                        metadata=metadata,
                     )
                     doc.metadata["id"] = doc_id
                     documents.append(doc)
@@ -213,11 +216,13 @@ class HybridRetriever:
         self, query: str, top_k: int = 5, filters: dict[str, Any] | None = None
     ) -> List[Document]:
         """执行混合检索。"""
-        # 确保已尝试初始化
+        if filters is None:
+            filters = {}
+        filters["is_deleted"] = False
+
         if not self._initialized:
             self.initialize()
 
-        # 如果初始化失败或没有 BM25，回退到纯向量检索
         if not self._ensemble_retriever or not self._vector_retriever:
             logger.warning("混合检索不可用，使用纯向量检索")
             vector_retriever = ChromaRetriever()
@@ -225,15 +230,20 @@ class HybridRetriever:
             vector_retriever.filters = filters
             return await vector_retriever.ainvoke(query)
 
-        # 更新参数
         self._vector_retriever.top_k = top_k
         self._vector_retriever.filters = filters
         
         if self._bm25_retriever:
             self._bm25_retriever.k = top_k
 
-        # 执行检索
-        return await self._ensemble_retriever.ainvoke(query)
+        results = await self._ensemble_retriever.ainvoke(query)
+        
+        filtered_results = [
+            doc for doc in results
+            if not doc.metadata.get("is_deleted", False)
+        ]
+        
+        return filtered_results[:top_k]
 
     def add_document(self, doc: Document) -> None:
         """动态添加文档到 BM25 索引。"""
