@@ -61,6 +61,7 @@ const UploadPage = {
             if (response.success) {
                 this.conditions = response.data.items || [];
                 this.dataLoadedAt = now;
+                this.cleanupInvalidConditionIds();
                 this.updateConditionBuilder();
             }
         } catch (error) {
@@ -77,6 +78,44 @@ const UploadPage = {
 
     clearCache() {
         this.dataLoadedAt = null;
+    },
+
+    /**
+     * 清理无效的条件ID引用
+     * 当筛选条件被删除后，需要从 conditionGroups 和 excludeConditionIds 中移除对应的ID
+     */
+    cleanupInvalidConditionIds() {
+        const validIds = new Set(this.conditions.map(c => c.id));
+        let hasChanges = false;
+
+        this.conditionGroups.forEach(group => {
+            const originalLength = group.conditionIds.length;
+            group.conditionIds = group.conditionIds.filter(id => validIds.has(id));
+            if (group.conditionIds.length !== originalLength) {
+                hasChanges = true;
+            }
+        });
+
+        const nonEmptyGroups = this.conditionGroups.filter(g => g.conditionIds.length > 0);
+        if (nonEmptyGroups.length === 0 && this.conditionGroups.length > 1) {
+            this.conditionGroups = [{
+                id: 'group_1',
+                logic: 'and',
+                conditionIds: [],
+            }];
+            hasChanges = true;
+        } else if (nonEmptyGroups.length > 0 && nonEmptyGroups.length < this.conditionGroups.length) {
+            this.conditionGroups = nonEmptyGroups;
+            hasChanges = true;
+        }
+
+        const originalExcludeLength = this.excludeConditionIds.length;
+        this.excludeConditionIds = this.excludeConditionIds.filter(id => validIds.has(id));
+        if (this.excludeConditionIds.length !== originalExcludeLength) {
+            hasChanges = true;
+        }
+
+        return hasChanges;
     },
 
     /**
