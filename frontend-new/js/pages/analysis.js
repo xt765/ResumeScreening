@@ -604,16 +604,16 @@ const AnalysisPage = {
                 gfm: true,
             });
             let html = marked.parse(answer);
-            html = html.replace(/<strong>([^\s【】]+)\s+(智能推荐指数[：:]\s*\d+[^<]*)<\/strong>/g, 
-                '<strong><span class="candidate-name-highlight" onclick="AnalysisPage.scrollToCandidateByName(\'$1\')">$1</span> $2</strong>');
+            html = html.replace(/<strong>([^\s【】*]+)[：:]\s*(\d+分[^<]*)<\/strong>/g, 
+                '<strong><span class="candidate-name-highlight" onclick="AnalysisPage.scrollToCandidateByName(\'$1\')">$1</span>：$2</strong>');
             container.innerHTML = html;
         } else {
             let formatted = answer
                 .replace(/###\s*(.+)/g, '<h5 class="conclusion-section">$1</h5>')
                 .replace(/##\s*(.+)/g, '<h4 class="conclusion-heading">$1</h4>')
                 .replace(/#\s*(.+)/g, '<h3 class="conclusion-title">$1</h3>')
-                .replace(/\*\*([^\s【】]+)\s+(智能推荐指数[：:]\s*\d+[^\*]*)\*\*/g, 
-                    '<strong><span class="candidate-name-highlight" onclick="AnalysisPage.scrollToCandidateByName(\'$1\')">$1</span> $2</strong>')
+                .replace(/\*\*([^\s【】*]+)[：:]\s*(\d+分[^\*]*)\*\*/g, 
+                    '<strong><span class="candidate-name-highlight" onclick="AnalysisPage.scrollToCandidateByName(\'$1\')">$1</span>：$2</strong>')
                 .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
                 .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
                 .replace(/^- (.+)$/gm, '<li>$1</li>')
@@ -1117,10 +1117,8 @@ const AnalysisPage = {
         
         const scores = {};
         const patterns = [
-            /\*\*([^\s【】*]+)\s+智能推荐指数[：:]\s*(\d+)/g,
-            /([^\s【】*]+)\s+智能推荐指数[：:]\s*(\d+)/g,
-            /\*\*([^\s【】*]+)智能推荐指数[：:]\s*(\d+)/g,
-            /([^\s【】*]+)智能推荐指数[：:]\s*(\d+)/g
+            /\*\*([^\s【】*]+)[：:]\s*(\d+)分/g,
+            /([^\s【】*]+)[：:]\s*(\d+)分/g
         ];
         
         for (const pattern of patterns) {
@@ -1146,13 +1144,6 @@ const AnalysisPage = {
      */
     parseRecommendationScore(answer, candidateIndex) {
         if (!answer) return null;
-        
-        const pattern = new RegExp(`【候选人${candidateIndex}】[^】]*智能推荐指数[：:]\\s*(\\d+)`, 'i');
-        const match = answer.match(pattern);
-        
-        if (match) {
-            return parseInt(match[1], 10);
-        }
         
         const altPattern = new RegExp(`候选人${candidateIndex}[^\\d]*(\\d+)\\s*分`, 'i');
         const altMatch = answer.match(altPattern);
@@ -1425,6 +1416,9 @@ if (!document.getElementById('analysis-styles')) {
     const analysisStyles = document.createElement('style');
     analysisStyles.id = 'analysis-styles';
     analysisStyles.textContent = `
+    /* ========================================
+       分析页面 - 整体布局
+    ======================================== */
     .analysis-page .page-header {
         margin-bottom: 24px;
     }
@@ -1441,8 +1435,13 @@ if (!document.getElementById('analysis-styles')) {
         color: var(--text-secondary);
     }
 
+    /* ========================================
+       查询区域样式
+    ======================================== */
     .analysis-page .query-section {
         margin-bottom: 24px;
+        background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+        border: 1px solid var(--border-color, #e5e7eb);
     }
 
     .analysis-page .query-form {
@@ -1460,6 +1459,13 @@ if (!document.getElementById('analysis-styles')) {
         resize: vertical;
         font-size: 14px;
         line-height: 1.6;
+        border: 2px solid var(--border-color, #e5e7eb);
+        transition: all 0.2s ease;
+    }
+
+    .analysis-page .query-textarea:focus {
+        border-color: var(--primary-color, #3370ff);
+        box-shadow: 0 0 0 3px rgba(51, 112, 255, 0.1);
     }
 
     .analysis-page .query-actions {
@@ -1475,16 +1481,33 @@ if (!document.getElementById('analysis-styles')) {
 
     .analysis-page .query-btn {
         flex-shrink: 0;
-        min-width: 120px;
+        min-width: 140px;
         display: flex;
         align-items: center;
         justify-content: center;
         gap: 8px;
+        background: linear-gradient(135deg, var(--primary-color, #3370ff) 0%, #5b8def 100%);
+        border: none;
+        box-shadow: 0 4px 12px rgba(51, 112, 255, 0.25);
+        transition: all 0.3s ease;
     }
 
+    .analysis-page .query-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(51, 112, 255, 0.35);
+    }
+
+    .analysis-page .query-btn:active {
+        transform: translateY(0);
+    }
+
+    /* ========================================
+       进度区域样式
+    ======================================== */
     .analysis-page .progress-section {
         margin-bottom: 24px;
-        border-left: 4px solid var(--primary-color, #3b82f6);
+        border-left: 4px solid var(--primary-color, #3370ff);
+        background: linear-gradient(90deg, rgba(51, 112, 255, 0.03) 0%, transparent 100%);
     }
 
     .analysis-page .progress-info {
@@ -1492,18 +1515,37 @@ if (!document.getElementById('analysis-styles')) {
     }
 
     .analysis-page .progress-bar-container {
-        height: 8px;
-        background: #e5e7eb;
-        border-radius: 4px;
+        height: 10px;
+        background: linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 100%);
+        border-radius: 5px;
         overflow: hidden;
         margin-bottom: 8px;
+        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
     }
 
     .analysis-page .progress-bar {
         height: 100%;
-        background: linear-gradient(90deg, #3b82f6, #10b981);
-        border-radius: 4px;
+        background: linear-gradient(90deg, #3370ff, #10b981);
+        border-radius: 5px;
         transition: width 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .analysis-page .progress-bar::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+        animation: shimmer 2s infinite;
+    }
+
+    @keyframes shimmer {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
     }
 
     .analysis-page .progress-text {
@@ -1518,9 +1560,32 @@ if (!document.getElementById('analysis-styles')) {
         border-top: 1px solid var(--border-color, #e5e7eb);
     }
 
+    /* ========================================
+       分析结论卡片 - 核心优化区域
+    ======================================== */
     .analysis-page .conclusion-card {
         margin-bottom: 24px;
-        border-left: 4px solid var(--primary-color, #3b82f6);
+        border-left: 4px solid var(--primary-color, #3370ff);
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    }
+
+    .analysis-page .conclusion-card .card-header {
+        background: linear-gradient(135deg, rgba(51, 112, 255, 0.05) 0%, rgba(51, 112, 255, 0.02) 100%);
+        border-bottom: 1px solid rgba(51, 112, 255, 0.1);
+    }
+
+    .analysis-page .conclusion-card .card-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 17px;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .analysis-page .conclusion-card .card-title svg {
+        color: var(--primary-color, #3370ff);
     }
 
     .analysis-page .card-actions {
@@ -1528,189 +1593,339 @@ if (!document.getElementById('analysis-styles')) {
         gap: 8px;
     }
 
+    /* 报告内容区域 */
     .analysis-page .conclusion-content {
         font-size: 14px;
-        line-height: 1.8;
+        line-height: 2;
         color: var(--text-primary);
+        padding: 8px 0;
     }
 
+    /* 标题样式 - 增强视觉层次 */
     .analysis-page .conclusion-content h1 {
-        font-size: 22px;
+        font-size: 24px;
         font-weight: 700;
-        margin: 20px 0 12px;
+        margin: 28px 0 16px;
         color: var(--text-primary);
-        border-bottom: 2px solid var(--primary-color, #3b82f6);
-        padding-bottom: 8px;
+        background: linear-gradient(135deg, var(--primary-color, #3370ff) 0%, #5b8def 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        position: relative;
+        padding-bottom: 12px;
+    }
+
+    .analysis-page .conclusion-content h1::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 60px;
+        height: 3px;
+        background: linear-gradient(90deg, var(--primary-color, #3370ff), transparent);
+        border-radius: 2px;
     }
 
     .analysis-page .conclusion-content h2 {
         font-size: 20px;
         font-weight: 600;
-        margin: 18px 0 10px;
+        margin: 24px 0 14px;
         color: var(--text-primary);
-        border-left: 4px solid var(--primary-color, #3b82f6);
-        padding-left: 12px;
+        border-left: 4px solid var(--primary-color, #3370ff);
+        padding-left: 16px;
+        background: linear-gradient(90deg, rgba(51, 112, 255, 0.05) 0%, transparent 100%);
+        padding-top: 8px;
+        padding-bottom: 8px;
+        border-radius: 0 8px 8px 0;
     }
 
     .analysis-page .conclusion-content h3 {
         font-size: 18px;
         font-weight: 600;
-        margin: 16px 0 8px;
+        margin: 20px 0 12px;
         color: var(--text-primary);
+        position: relative;
+        padding-left: 20px;
+    }
+
+    .analysis-page .conclusion-content h3::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 8px;
+        height: 8px;
+        background: var(--primary-color, #3370ff);
+        border-radius: 50%;
     }
 
     .analysis-page .conclusion-content h4 {
         font-size: 16px;
         font-weight: 600;
-        margin: 14px 0 6px;
-        color: var(--text-secondary);
+        margin: 18px 0 10px;
+        color: #4b5563;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .analysis-page .conclusion-content h4::before {
+        content: '▸';
+        color: var(--primary-color, #3370ff);
+        font-size: 14px;
     }
 
     .analysis-page .conclusion-content h5 {
         font-size: 15px;
         font-weight: 600;
-        margin: 12px 0 6px;
-        color: var(--text-secondary);
+        margin: 16px 0 8px;
+        color: #6b7280;
     }
 
     .analysis-page .conclusion-content h6 {
         font-size: 14px;
         font-weight: 600;
-        margin: 10px 0 4px;
+        margin: 14px 0 6px;
         color: var(--text-muted, #9ca3af);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
 
+    /* 段落样式 */
     .analysis-page .conclusion-content p {
-        margin: 0 0 12px;
+        margin: 0 0 16px;
+        line-height: 2;
+        text-align: justify;
+    }
+
+    /* 列表样式 - 添加自定义图标 */
+    .analysis-page .conclusion-content ul,
+    .analysis-page .conclusion-content ol {
+        margin: 16px 0;
+        padding-left: 0;
+        list-style: none;
+    }
+
+    .analysis-page .conclusion-content ul {
+        counter-reset: ul-item;
+    }
+
+    .analysis-page .conclusion-content ul > li {
+        position: relative;
+        padding-left: 28px;
+        margin-bottom: 12px;
         line-height: 1.8;
     }
 
-    .analysis-page .conclusion-content ul,
-    .analysis-page .conclusion-content ol {
-        margin: 12px 0;
-        padding-left: 24px;
+    .analysis-page .conclusion-content ul > li::before {
+        content: '';
+        position: absolute;
+        left: 8px;
+        top: 10px;
+        width: 6px;
+        height: 6px;
+        background: var(--primary-color, #3370ff);
+        border-radius: 50%;
+        box-shadow: 0 0 0 3px rgba(51, 112, 255, 0.2);
     }
 
-    .analysis-page .conclusion-content li {
-        margin-bottom: 8px;
-        line-height: 1.6;
+    .analysis-page .conclusion-content ol {
+        counter-reset: ol-item;
+    }
+
+    .analysis-page .conclusion-content ol > li {
+        position: relative;
+        padding-left: 36px;
+        margin-bottom: 12px;
+        line-height: 1.8;
+        counter-increment: ol-item;
+    }
+
+    .analysis-page .conclusion-content ol > li::before {
+        content: counter(ol-item);
+        position: absolute;
+        left: 0;
+        top: 2px;
+        width: 24px;
+        height: 24px;
+        background: linear-gradient(135deg, var(--primary-color, #3370ff), #5b8def);
+        color: #fff;
+        border-radius: 50%;
+        font-size: 12px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 6px rgba(51, 112, 255, 0.3);
     }
 
     .analysis-page .conclusion-content ul ul,
     .analysis-page .conclusion-content ol ol,
     .analysis-page .conclusion-content ul ol,
     .analysis-page .conclusion-content ol ul {
-        margin: 6px 0;
+        margin: 8px 0;
+        padding-left: 8px;
     }
 
+    .analysis-page .conclusion-content li {
+        margin-bottom: 10px;
+        line-height: 1.8;
+    }
+
+    /* 分隔线 */
     .analysis-page .conclusion-content hr {
         border: none;
-        border-top: 1px solid var(--border-color, #e5e7eb);
-        margin: 20px 0;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, var(--border-color, #e5e7eb), transparent);
+        margin: 28px 0;
     }
 
+    /* 链接样式 */
     .analysis-page .conclusion-content a {
-        color: var(--primary-color, #3b82f6);
+        color: var(--primary-color, #3370ff);
         text-decoration: none;
-        border-bottom: 1px dashed var(--primary-color, #3b82f6);
+        border-bottom: 1px dashed var(--primary-color, #3370ff);
         transition: all 0.2s ease;
+        padding-bottom: 1px;
     }
 
     .analysis-page .conclusion-content a:hover {
         color: var(--primary-hover, #2860e1);
         border-bottom-style: solid;
+        background: rgba(51, 112, 255, 0.05);
     }
 
+    /* 图片样式 */
     .analysis-page .conclusion-content img {
         max-width: 100%;
         height: auto;
         border-radius: var(--radius-md, 8px);
-        margin: 12px 0;
+        margin: 16px 0;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     }
 
+    /* 删除线 */
     .analysis-page .conclusion-content del {
         color: var(--text-muted, #9ca3af);
+        text-decoration: line-through;
     }
 
+    /* 行内代码 */
     .analysis-page .conclusion-content code {
-        background: #f3f4f6;
-        padding: 2px 6px;
+        background: linear-gradient(135deg, #fef3f2 0%, #fee2e2 100%);
+        padding: 3px 8px;
         border-radius: 4px;
         font-size: 13px;
-        color: #ef4444;
+        color: #dc2626;
+        font-family: 'Consolas', 'Monaco', monospace;
+        border: 1px solid rgba(220, 38, 38, 0.2);
     }
 
+    /* 代码块 */
     .analysis-page .conclusion-content pre {
-        background: #1f2937;
+        background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
         color: #e5e7eb;
-        padding: 16px;
-        border-radius: 8px;
+        padding: 20px;
+        border-radius: 12px;
         overflow-x: auto;
-        margin: 12px 0;
+        margin: 16px 0;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.1);
     }
 
     .analysis-page .conclusion-content pre code {
         background: none;
         color: inherit;
         padding: 0;
+        border: none;
+        font-size: 13px;
     }
 
+    /* 引用块 - 增强样式 */
     .analysis-page .conclusion-content blockquote {
-        border-left: 4px solid #3b82f6;
-        padding-left: 16px;
-        margin: 12px 0;
-        color: var(--text-secondary);
+        border-left: 4px solid var(--primary-color, #3370ff);
+        padding: 16px 20px;
+        margin: 20px 0;
+        color: #4b5563;
+        background: linear-gradient(90deg, rgba(51, 112, 255, 0.05) 0%, transparent 100%);
+        border-radius: 0 8px 8px 0;
+        font-style: italic;
+        position: relative;
     }
 
+    .analysis-page .conclusion-content blockquote::before {
+        content: '"';
+        position: absolute;
+        top: 8px;
+        left: 12px;
+        font-size: 32px;
+        color: var(--primary-color, #3370ff);
+        opacity: 0.3;
+        font-family: Georgia, serif;
+    }
+
+    /* 表格样式 - 专业美观 */
     .analysis-page .conclusion-content table {
         width: 100%;
-        border-collapse: collapse;
-        margin: 16px 0;
+        border-collapse: separate;
+        border-spacing: 0;
+        margin: 20px 0;
         font-size: 14px;
         background: #fff;
-        border-radius: 8px;
+        border-radius: 12px;
         overflow: hidden;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+        border: 1px solid var(--border-color, #e5e7eb);
     }
 
     .analysis-page .conclusion-content thead {
-        background: #f8fafc;
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
     }
 
     .analysis-page .conclusion-content th {
-        padding: 12px 16px;
+        padding: 14px 18px;
         text-align: left;
         font-weight: 600;
         color: var(--text-primary);
-        border-bottom: 2px solid #e5e7eb;
+        border-bottom: 2px solid var(--primary-color, #3370ff);
         white-space: nowrap;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
 
     .analysis-page .conclusion-content td {
-        padding: 12px 16px;
+        padding: 14px 18px;
         color: var(--text-primary);
-        border-bottom: 1px solid #e5e7eb;
+        border-bottom: 1px solid #f3f4f6;
         vertical-align: top;
+        transition: background-color 0.2s ease;
     }
 
     .analysis-page .conclusion-content tbody tr:last-child td {
         border-bottom: none;
     }
 
+    .analysis-page .conclusion-content tbody tr:nth-child(even) {
+        background: rgba(248, 250, 252, 0.5);
+    }
+
     .analysis-page .conclusion-content tbody tr:hover {
-        background: #f8fafc;
+        background: linear-gradient(90deg, rgba(51, 112, 255, 0.05) 0%, rgba(51, 112, 255, 0.02) 100%);
     }
 
     .analysis-page .conclusion-content th:first-child,
     .analysis-page .conclusion-content td:first-child {
-        padding-left: 20px;
+        padding-left: 24px;
     }
 
     .analysis-page .conclusion-content th:last-child,
     .analysis-page .conclusion-content td:last-child {
-        padding-right: 20px;
+        padding-right: 24px;
     }
 
+    /* 兼容旧样式 */
     .analysis-page .conclusion-heading {
         font-size: 16px;
         font-weight: 600;
@@ -1725,68 +1940,60 @@ if (!document.getElementById('analysis-styles')) {
         color: var(--text-secondary);
     }
 
+    /* 候选人姓名高亮 */
     .analysis-page .candidate-name-highlight {
         font-weight: 600;
         color: #1e40af;
-        border-bottom: 2px solid #3b82f6;
+        border-bottom: 2px solid #3370ff;
         padding-bottom: 1px;
         cursor: pointer;
         transition: all 0.2s ease;
-        background: linear-gradient(to bottom, transparent 60%, rgba(59, 130, 246, 0.15) 60%);
+        background: linear-gradient(to bottom, transparent 60%, rgba(51, 112, 255, 0.15) 60%);
+        border-radius: 2px;
     }
 
     .analysis-page .candidate-name-highlight:hover {
         color: #1d4ed8;
         border-bottom-color: #1d4ed8;
-        background: linear-gradient(to bottom, transparent 60%, rgba(59, 130, 246, 0.25) 60%);
+        background: linear-gradient(to bottom, transparent 60%, rgba(51, 112, 255, 0.25) 60%);
+        transform: translateY(-1px);
     }
 
+    /* 候选人引用标记 */
     .analysis-page .candidate-ref {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        min-width: 18px;
-        height: 18px;
-        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        min-width: 20px;
+        height: 20px;
+        background: linear-gradient(135deg, var(--primary-color, #3370ff) 0%, #5b8def 100%);
         color: #fff;
-        padding: 0 4px;
-        border-radius: 9px;
+        padding: 0 6px;
+        border-radius: 10px;
         font-size: 11px;
         font-weight: 700;
         cursor: pointer;
         transition: all 0.2s ease;
-        box-shadow: 0 1px 2px rgba(59, 130, 246, 0.3);
+        box-shadow: 0 2px 6px rgba(51, 112, 255, 0.3);
         text-decoration: none;
         vertical-align: middle;
-        margin: 0 1px;
+        margin: 0 2px;
         line-height: 1;
     }
 
     .analysis-page .candidate-ref:hover {
         background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
-        box-shadow: 0 2px 4px rgba(59, 130, 246, 0.4);
-        transform: scale(1.1);
+        box-shadow: 0 4px 10px rgba(51, 112, 255, 0.4);
+        transform: scale(1.15);
     }
 
     .analysis-page .candidate-ref:active {
         transform: scale(1);
     }
 
-    .analysis-page .candidate-card.highlight {
-        animation: highlight-pulse 0.5s ease-in-out 3;
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
-    }
-
-    @keyframes highlight-pulse {
-        0%, 100% {
-            background: #fff;
-        }
-        50% {
-            background: #eff6ff;
-        }
-    }
-
+    /* ========================================
+       统计仪表板
+    ======================================== */
     .analysis-page .analytics-dashboard {
         margin-bottom: 24px;
     }
@@ -1802,44 +2009,64 @@ if (!document.getElementById('analysis-styles')) {
         display: flex;
         align-items: center;
         gap: 16px;
-        padding: 20px;
-        background: #fff;
+        padding: 24px;
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
         border-radius: var(--radius-lg, 12px);
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+        border: 1px solid var(--border-color, #e5e7eb);
+        transition: all 0.3s ease;
+    }
+
+    .analysis-page .metric-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
     }
 
     .analysis-page .metric-icon {
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 48px;
-        height: 48px;
-        border-radius: 12px;
+        width: 56px;
+        height: 56px;
+        border-radius: 14px;
+        transition: transform 0.3s ease;
+    }
+
+    .analysis-page .metric-card:hover .metric-icon {
+        transform: scale(1.1);
     }
 
     .analysis-page .metric-icon.primary {
-        background: #eff6ff;
-        color: #3b82f6;
+        background: linear-gradient(135deg, rgba(51, 112, 255, 0.15) 0%, rgba(51, 112, 255, 0.05) 100%);
+        color: var(--primary-color, #3370ff);
     }
 
     .analysis-page .metric-icon.success {
-        background: #ecfdf5;
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.05) 100%);
         color: #10b981;
     }
 
+    .analysis-page .metric-info {
+        flex: 1;
+    }
+
     .analysis-page .metric-value {
-        font-size: 28px;
+        font-size: 32px;
         font-weight: 700;
         color: var(--text-primary);
         line-height: 1;
+        margin-bottom: 4px;
     }
 
     .analysis-page .metric-label {
         font-size: 13px;
         color: var(--text-secondary);
-        margin-top: 4px;
+        font-weight: 500;
     }
 
+    /* ========================================
+       图表卡片
+    ======================================== */
     .analysis-page .charts-row {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
@@ -1848,32 +2075,70 @@ if (!document.getElementById('analysis-styles')) {
     }
 
     .analysis-page .chart-card {
-        background: #fff;
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
         border-radius: var(--radius-lg, 12px);
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+        border: 1px solid var(--border-color, #e5e7eb);
+        transition: all 0.3s ease;
+    }
+
+    .analysis-page .chart-card:hover {
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
     }
 
     .analysis-page .chart-card .card-header {
-        padding: 16px 20px;
+        padding: 18px 22px;
         border-bottom: 1px solid var(--border-color, #e5e7eb);
+        background: linear-gradient(90deg, rgba(51, 112, 255, 0.03) 0%, transparent 100%);
     }
 
     .analysis-page .chart-card .card-title {
-        font-size: 14px;
+        font-size: 15px;
         font-weight: 600;
         color: var(--text-primary);
         margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .analysis-page .chart-card .card-title::before {
+        content: '';
+        width: 4px;
+        height: 16px;
+        background: linear-gradient(180deg, var(--primary-color, #3370ff), #5b8def);
+        border-radius: 2px;
     }
 
     .analysis-page .chart-container {
-        height: 200px;
+        height: 220px;
         width: 100%;
     }
 
+    /* ========================================
+       候选人卡片 - 核心优化区域
+    ======================================== */
     .analysis-page .candidates-card {
-        background: #fff;
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
         border-radius: var(--radius-lg, 12px);
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+        border: 1px solid var(--border-color, #e5e7eb);
+    }
+
+    .analysis-page .candidates-card .card-header {
+        background: linear-gradient(90deg, rgba(51, 112, 255, 0.05) 0%, transparent 100%);
+        border-bottom: 1px solid rgba(51, 112, 255, 0.1);
+    }
+
+    .analysis-page .candidates-card .card-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 17px;
+    }
+
+    .analysis-page .candidates-card .card-title svg {
+        color: var(--primary-color, #3370ff);
     }
 
     .analysis-page .sort-controls {
@@ -1897,44 +2162,93 @@ if (!document.getElementById('analysis-styles')) {
     .analysis-page .candidates-list {
         display: flex;
         flex-direction: column;
-        gap: 12px;
+        gap: 14px;
+        padding: 4px 0;
     }
 
     .analysis-page .empty-state {
         text-align: center;
-        padding: 40px 20px;
+        padding: 60px 20px;
         color: var(--text-secondary);
         font-size: 14px;
     }
 
+    /* 候选人卡片 - 增强视觉效果 */
     .analysis-page .candidate-card {
         display: flex;
         align-items: center;
-        gap: 16px;
-        padding: 16px;
-        background: var(--bg-secondary, #f9fafb);
-        border-radius: var(--radius-md, 8px);
+        gap: 18px;
+        padding: 20px;
+        background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%);
+        border-radius: var(--radius-md, 10px);
         border: 1px solid var(--border-color, #e5e7eb);
-        transition: all 0.2s;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .analysis-page .candidate-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: linear-gradient(180deg, var(--primary-color, #3370ff), #5b8def);
+        opacity: 0;
+        transition: opacity 0.3s ease;
     }
 
     .analysis-page .candidate-card:hover {
-        border-color: var(--primary-color, #3b82f6);
-        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+        border-color: var(--primary-color, #3370ff);
+        box-shadow: 0 8px 24px rgba(51, 112, 255, 0.12);
+        transform: translateX(4px);
     }
 
+    .analysis-page .candidate-card:hover::before {
+        opacity: 1;
+    }
+
+    /* 排名徽章 - 前三名特殊样式 */
     .analysis-page .candidate-rank {
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 32px;
-        height: 32px;
-        background: var(--primary-color, #3b82f6);
+        width: 36px;
+        height: 36px;
+        background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
         color: #fff;
         border-radius: 50%;
-        font-size: 14px;
-        font-weight: 600;
+        font-size: 15px;
+        font-weight: 700;
         flex-shrink: 0;
+        box-shadow: 0 4px 10px rgba(100, 116, 139, 0.3);
+        position: relative;
+    }
+
+    /* 第一名 - 金色 */
+    .analysis-page .candidate-card:nth-child(1) .candidate-rank {
+        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+        box-shadow: 0 4px 14px rgba(245, 158, 11, 0.4);
+    }
+
+    .analysis-page .candidate-card:nth-child(1) .candidate-rank::after {
+        content: '👑';
+        position: absolute;
+        top: -8px;
+        font-size: 16px;
+    }
+
+    /* 第二名 - 银色 */
+    .analysis-page .candidate-card:nth-child(2) .candidate-rank {
+        background: linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%);
+        box-shadow: 0 4px 14px rgba(148, 163, 184, 0.4);
+    }
+
+    /* 第三名 - 铜色 */
+    .analysis-page .candidate-card:nth-child(3) .candidate-rank {
+        background: linear-gradient(135deg, #fb923c 0%, #ea580c 100%);
+        box-shadow: 0 4px 14px rgba(234, 88, 12, 0.4);
     }
 
     .analysis-page .candidate-info {
@@ -1946,93 +2260,124 @@ if (!document.getElementById('analysis-styles')) {
         display: flex;
         align-items: center;
         gap: 12px;
-        margin-bottom: 6px;
+        margin-bottom: 8px;
     }
 
     .analysis-page .candidate-name {
-        font-size: 15px;
+        font-size: 16px;
         font-weight: 600;
         color: var(--text-primary);
+        transition: color 0.2s ease;
+    }
+
+    .analysis-page .candidate-card:hover .candidate-name {
+        color: var(--primary-color, #3370ff);
     }
 
     .analysis-page .candidate-education {
         font-size: 13px;
-        font-weight: 500;
+        font-weight: 600;
+        padding: 3px 10px;
+        border-radius: 12px;
+        background: rgba(51, 112, 255, 0.08);
     }
 
     .analysis-page .candidate-details {
         display: flex;
         flex-wrap: wrap;
-        gap: 12px;
-        margin-bottom: 8px;
+        gap: 14px;
+        margin-bottom: 10px;
     }
 
     .analysis-page .detail-item {
         display: flex;
         align-items: center;
-        gap: 4px;
+        gap: 6px;
         font-size: 13px;
         color: var(--text-secondary);
+        transition: color 0.2s ease;
+    }
+
+    .analysis-page .candidate-card:hover .detail-item {
+        color: #4b5563;
     }
 
     .analysis-page .detail-item svg {
         flex-shrink: 0;
+        opacity: 0.6;
     }
 
+    /* 技能标签 - 增强样式 */
     .analysis-page .candidate-skills {
         display: flex;
         flex-wrap: wrap;
-        gap: 6px;
+        gap: 8px;
     }
 
     .analysis-page .skill-tag {
-        display: inline-block;
-        padding: 2px 8px;
-        background: #eff6ff;
-        color: #3b82f6;
-        border-radius: 4px;
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 12px;
+        background: linear-gradient(135deg, rgba(51, 112, 255, 0.1) 0%, rgba(51, 112, 255, 0.05) 100%);
+        color: var(--primary-color, #3370ff);
+        border-radius: 16px;
         font-size: 12px;
+        font-weight: 500;
+        border: 1px solid rgba(51, 112, 255, 0.15);
+        transition: all 0.2s ease;
+    }
+
+    .analysis-page .candidate-card:hover .skill-tag {
+        background: linear-gradient(135deg, rgba(51, 112, 255, 0.15) 0%, rgba(51, 112, 255, 0.08) 100%);
+        border-color: rgba(51, 112, 255, 0.25);
     }
 
     .analysis-page .skill-more {
         font-size: 12px;
         color: var(--text-secondary);
+        padding: 4px 8px;
+        background: rgba(0, 0, 0, 0.03);
+        border-radius: 12px;
     }
 
+    /* 推荐指数 - 增强圆形进度条 */
     .analysis-page .candidate-score {
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 4px;
+        gap: 6px;
         flex-shrink: 0;
+        padding: 8px;
     }
 
     .analysis-page .score-circle {
         position: relative;
-        width: 56px;
-        height: 56px;
+        width: 64px;
+        height: 64px;
     }
 
     .analysis-page .circular-chart {
         width: 100%;
         height: 100%;
         transform: rotate(-90deg);
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
     }
 
     .analysis-page .circle-bg {
         fill: none;
-        stroke: #e5e7eb;
-        stroke-width: 3;
+        stroke: #f3f4f6;
+        stroke-width: 4;
     }
 
     .analysis-page .circle {
         fill: none;
-        stroke-width: 3;
+        stroke-width: 4;
         stroke-linecap: round;
-        transition: stroke-dasharray 0.3s ease;
+        transition: stroke-dasharray 0.5s ease;
     }
 
     .analysis-page .candidate-score.high .circle {
+        stroke: url(#gradient-high);
         stroke: #10b981;
     }
 
@@ -2049,39 +2394,84 @@ if (!document.getElementById('analysis-styles')) {
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        font-size: 12px;
-        font-weight: 600;
+        font-size: 16px;
+        font-weight: 700;
         color: var(--text-primary);
+    }
+
+    .analysis-page .candidate-score.high .score-text {
+        color: #10b981;
+    }
+
+    .analysis-page .candidate-score.medium .score-text {
+        color: #f59e0b;
+    }
+
+    .analysis-page .candidate-score.low .score-text {
+        color: #ef4444;
     }
 
     .analysis-page .score-label {
         font-size: 11px;
         color: var(--text-secondary);
+        font-weight: 500;
     }
 
+    /* 操作按钮 */
     .analysis-page .candidate-actions {
         flex-shrink: 0;
     }
 
     .analysis-page .btn-outline {
-        padding: 6px 12px;
+        padding: 8px 16px;
         background: transparent;
         border: 1px solid var(--border-color, #e5e7eb);
         color: var(--text-primary);
         border-radius: var(--radius-sm, 6px);
         font-size: 13px;
+        font-weight: 500;
         cursor: pointer;
-        transition: all 0.2s;
+        transition: all 0.2s ease;
     }
 
     .analysis-page .btn-outline:hover {
-        border-color: var(--primary-color, #3b82f6);
-        color: var(--primary-color, #3b82f6);
+        border-color: var(--primary-color, #3370ff);
+        color: var(--primary-color, #3370ff);
+        background: rgba(51, 112, 255, 0.05);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 10px rgba(51, 112, 255, 0.15);
     }
 
+    /* 高亮动画 */
+    .analysis-page .candidate-card.highlight {
+        animation: highlight-pulse 0.6s ease-in-out 3;
+        border-color: var(--primary-color, #3370ff);
+        box-shadow: 0 0 0 4px rgba(51, 112, 255, 0.2);
+    }
+
+    @keyframes highlight-pulse {
+        0%, 100% {
+            background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%);
+        }
+        50% {
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        }
+    }
+
+    /* ========================================
+       响应式设计
+    ======================================== */
     @media (max-width: 1024px) {
         .analysis-page .charts-row {
             grid-template-columns: 1fr;
+        }
+
+        .analysis-page .conclusion-content h1 {
+            font-size: 22px;
+        }
+
+        .analysis-page .conclusion-content h2 {
+            font-size: 18px;
         }
     }
 
@@ -2101,6 +2491,7 @@ if (!document.getElementById('analysis-styles')) {
 
         .analysis-page .candidate-card {
             flex-wrap: wrap;
+            padding: 16px;
         }
 
         .analysis-page .candidate-score {
@@ -2109,6 +2500,9 @@ if (!document.getElementById('analysis-styles')) {
             justify-content: flex-start;
             gap: 12px;
             margin-top: 12px;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.02);
+            border-radius: 8px;
         }
 
         .analysis-page .candidate-actions {
@@ -2118,6 +2512,23 @@ if (!document.getElementById('analysis-styles')) {
 
         .analysis-page .candidate-actions .btn-outline {
             width: 100%;
+        }
+
+        .analysis-page .conclusion-content h1 {
+            font-size: 20px;
+        }
+
+        .analysis-page .conclusion-content h2 {
+            font-size: 17px;
+        }
+
+        .analysis-page .conclusion-content table {
+            font-size: 13px;
+        }
+
+        .analysis-page .conclusion-content th,
+        .analysis-page .conclusion-content td {
+            padding: 10px 14px;
         }
     }
 `;
