@@ -1011,17 +1011,6 @@ uv run basedpyright src/
 - [使用文档](docs/usage.md) - 用户使用指南
 - [技术博客](docs/blog.md) - 项目技术架构深度解析
 
-## 更新日志
-
-### v1.0.0 (2024-XX-XX)
-- ✨ 初始版本发布
-- 🚀 支持 PDF/DOCX 简历智能解析
-- 🤖 集成 DeepSeek LLM 实现智能筛选
-- 🔍 实现 Agentic RAG 智能问答
-- 📊 支持加权 RRF 混合检索
-- 🐳 提供 Docker 一键部署
-
-查看完整更新日志：[CHANGELOG.md](CHANGELOG.md)
 
 ## 贡献指南
 
@@ -1067,23 +1056,3 @@ uv run basedpyright src/
 ## 许可证
 
 MIT License
-
-Copyright (c) 2024 ResumeScreening Contributors
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
