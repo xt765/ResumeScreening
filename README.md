@@ -12,8 +12,6 @@
 ![Docker](https://img.shields.io/badge/Docker-Containerized-blue?style=flat-square&logo=docker)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square&logo=open-source-initiative)
 
-</div>
-
 ## 项目背景
 
 在企业招聘过程中，HR 每天需要处理大量简历，传统人工筛选方式存在诸多痛点。本系统应运而生，旨在解决招聘效率低下的问题。
@@ -185,7 +183,17 @@ graph TD
 
 ### 整体架构图
 
+> **提示**：本文档包含 Mermaid 图表，在 GitHub、Gitee 等支持 Mermaid 渲染的平台可直接查看。如果无法渲染，请参考下方的文字架构说明。
+
 系统采用微服务架构思想设计，支持容器化部署和水平扩展：
+
+**架构分层说明**：
+- **用户接入层**：浏览器/Web 客户端，提供用户交互界面
+- **网关接入层**：Nginx 反向代理，负责负载均衡和 SSL 证书管理
+- **应用服务层**：FastAPI 提供 RESTful API，WebSocket 实现实时通信
+- **工作流引擎层**：LangGraph 编排简历处理流程，支持状态管理
+- **AI 能力层**：DeepSeek LLM 提供智能解析，DashScope 提供向量化服务
+- **数据存储层**：MySQL 持久化数据，Redis 缓存，MinIO 对象存储，ChromaDB 向量检索
 
 ```mermaid
 graph TD
@@ -253,11 +261,11 @@ graph TD
 | **后端框架** | FastAPI | >=0.120.0 | 异步高性能，自动生成 API 文档，类型提示友好 |
 | **LLM框架** | LangChain | >=1.2.0 | 成熟的 LLM 应用开发框架，统一的大模型调用接口 |
 | **工作流引擎** | LangGraph | >=1.0.0 | 状态机工作流，支持可视化编排，便于复杂业务流程管理 |
-| **大模型** | DeepSeek | - | 国产大模型，中文理解能力强，API 价格低廉 |
-| **向量化** | DashScope | - | 阿里云服务，中文语义效果好，稳定可靠 |
+| **大模型** | DeepSeek | deepseek-chat / deepseek-coder | 国产大模型，中文理解能力强，API 价格低廉 |
+| **向量化** | DashScope | text-embedding-v3 | 阿里云服务，中文语义效果好，稳定可靠 |
 | **数据库** | MySQL | 8.0 | 成熟的关系数据库，支持事务，社区活跃 |
 | **缓存** | Redis | 7 | 高性能内存数据库，支持多种数据结构，可用于缓存和消息队列 |
-| **对象存储** | MinIO | - | S3 兼容的私有化对象存储，部署简单，成本低 |
+| **对象存储** | MinIO | RELEASE.2024-latest | S3 兼容的私有化对象存储，部署简单，成本低 |
 | **向量数据库** | ChromaDB | >=0.5.0 | 轻量级向量存储，无需额外依赖，适合中小规模数据 |
 | **前端** | HTML/CSS/JS | - | 原生实现，无框架依赖，加载快速，维护简单 |
 
@@ -648,7 +656,7 @@ erDiagram
 
 | 软件 | 版本 | 说明 | 安装方式 |
 |------|------|------|----------|
-| Python | 3.10-3.13 | 核心开发语言 (注意：因 pydantic v1 兼容性，不支持 3.14+) | 官网下载或 pyenv |
+| Python | 3.10 - 3.13 | 核心开发语言（注意：因 pydantic v1 兼容性，暂不支持 3.14+） | 官网下载或 pyenv |
 | Docker | 24.0+ | 容器化部署 | Docker Desktop |
 | Docker Compose | 2.20+ | 服务编排 | Docker Desktop 自带 |
 | uv | 最新版 | Python 包管理器 | `pip install uv` |
@@ -686,16 +694,80 @@ cd frontend-new && python -m http.server 3000
 
 ### Docker 部署
 
+#### 环境准备
+
+部署前请确保已完成以下配置：
+
+1. **创建环境变量文件**
 ```bash
-# 一键启动所有服务
+cp .env.example .env
+# 编辑 .env 文件，配置以下必要参数：
+# - MYSQL_ROOT_PASSWORD: MySQL root 密码
+# - DS_API_KEY: DeepSeek API Key
+# - DASHSCOPE_API_KEY: 阿里云 DashScope API Key
+# - MINIO_ROOT_USER / MINIO_ROOT_PASSWORD: MinIO 管理员账号
+```
+
+2. **数据持久化配置（可选但推荐）**
+```yaml
+# docker-compose.yml 中已配置以下数据卷：
+volumes:
+  mysql_data:    # MySQL 数据持久化
+  minio_data:    # MinIO 对象存储持久化
+  chroma_data:   # ChromaDB 向量数据持久化
+```
+
+#### 部署步骤
+
+```bash
+# 1. 一键启动所有服务
 docker-compose up -d
 
-# 查看服务状态
+# 2. 查看服务状态
 docker-compose ps
 
-# 查看日志
-docker-compose logs -f backend
+# 3. 查看各服务日志
+docker-compose logs -f backend   # 后端服务日志
+docker-compose logs -f mysql     # 数据库日志
+docker-compose logs -f minio     # 对象存储日志
+
+# 4. 健康检查
+curl http://localhost:8000/health
+
+# 5. 初始化数据库（首次部署需要）
+docker-compose exec backend uv run python scripts/init_db.py
+docker-compose exec backend uv run python scripts/init_admin.py
 ```
+
+#### 常用运维命令
+
+```bash
+# 停止所有服务
+docker-compose down
+
+# 停止并删除数据卷（谨慎使用）
+docker-compose down -v
+
+# 重启单个服务
+docker-compose restart backend
+
+# 进入容器执行命令
+docker-compose exec backend /bin/bash
+docker-compose exec mysql mysql -u root -p
+
+# 查看资源占用
+docker stats
+```
+
+#### 生产环境建议
+
+| 配置项 | 建议 | 说明 |
+|--------|------|------|
+| 数据备份 | 定期备份 MySQL 和 MinIO 数据 | 使用 `docker exec` 执行备份脚本 |
+| 日志管理 | 配置日志轮转 | 防止日志文件过大占满磁盘 |
+| 资源限制 | 为容器设置内存和 CPU 限制 | 避免单个服务耗尽主机资源 |
+| 网络安全 | 关闭不必要的端口暴露 | 仅暴露 80/443 端口到公网 |
+| 监控告警 | 部署 Prometheus + Grafana | 实时监控系统状态 |
 
 ### 访问地址
 
@@ -938,6 +1010,48 @@ uv run basedpyright src/
 - [开发指南](docs/development.md) - 开发环境搭建和代码规范
 - [使用文档](docs/usage.md) - 用户使用指南
 - [技术博客](docs/blog.md) - 项目技术架构深度解析
+
+
+## 贡献指南
+
+欢迎提交 Issue 和 Pull Request！
+
+### 提交 Issue
+- 描述问题时请提供复现步骤
+- 附上相关日志和错误信息
+- 标注问题类型：`bug`、`feature`、`question`
+
+### 提交 PR
+1. Fork 本仓库
+2. 创建特性分支：`git checkout -b feature/your-feature`
+3. 提交更改：`git commit -am 'Add some feature'`
+4. 推送分支：`git push origin feature/your-feature`
+5. 创建 Pull Request
+
+### 代码规范
+- 使用 `ruff` 进行代码格式化
+- 使用 `basedpyright` 进行类型检查
+- 提交前确保所有测试通过
+
+## 联系方式
+
+如有问题或建议，欢迎通过以下方式联系：
+
+| 方式 | 链接 |
+|------|------|
+| CSDN 博客 | [玄同765](https://blog.csdn.net/Yunyi_Chi) |
+| GitHub Issues | [提交 Issue](https://github.com/xt765/ResumeScreening/issues) |
+| Gitee Issues | [提交 Issue](https://gitee.com/xt765/resume-screening/issues) |
+
+## 致谢
+
+感谢以下开源项目和技术：
+
+- [LangChain](https://github.com/langchain-ai/langchain) - LLM 应用开发框架
+- [LangGraph](https://github.com/langchain-ai/langgraph) - 工作流编排引擎
+- [FastAPI](https://github.com/tiangolo/fastapi) - 高性能 Web 框架
+- [DeepSeek](https://deepseek.com/) - 大语言模型支持
+- [DashScope](https://dashscope.aliyun.com/) - 向量模型服务
 
 ## 许可证
 
